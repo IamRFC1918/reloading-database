@@ -1,26 +1,29 @@
+# Basis: Wolfi (Chainguard) – glibc, minimal, täglich neu gebaute Pakete,
+# dadurch kaum offene CVEs. Python wird als Paket in fester Minor-Version
+# installiert. Der Digest wird von Dependabot aktualisiert.
+ARG BASE=cgr.dev/chainguard/wolfi-base:latest@sha256:9c2092b053779e14c82fb50f77b37bcc38b7d2c83972352d5813280f9d035b03
+
 # ---------- Build: Abhängigkeiten in ein venv installieren ----------
-FROM python:3.12-slim AS build
+FROM ${BASE} AS build
+RUN apk add --no-cache python-3.12 py3.12-pip
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
-RUN python -m venv /venv
+RUN python3.12 -m venv /venv
 COPY backend/requirements.txt /tmp/requirements.txt
 RUN /venv/bin/pip install -r /tmp/requirements.txt \
     && /venv/bin/pip uninstall -y pip
 
 # ---------- Laufzeit ----------
-FROM python:3.12-slim
-# Sicherheitsupdates des Basis-Images mitnehmen; pip wird zur Laufzeit nicht gebraucht
-RUN apt-get update && apt-get upgrade -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/* \
-    && python -m pip uninstall -y pip setuptools wheel
+FROM ${BASE}
+# Nur der Interpreter, kein pip. apk/busybox bleiben (Teil von wolfi-base):
+# Als Non-root mit read-only Root-FS kann apk nichts installieren.
+RUN apk add --no-cache python-3.12 \
+    && mkdir -p /data/fotos && chown -R 10001:10001 /data
 ENV PATH=/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOME=/tmp \
     UPLOAD_DIR=/data/fotos \
     PORT=8000
-
-RUN useradd --uid 10001 --user-group --no-create-home --shell /usr/sbin/nologin app \
-    && mkdir -p /data/fotos && chown -R 10001:10001 /data
 
 COPY --from=build /venv /venv
 WORKDIR /app
@@ -34,7 +37,8 @@ COPY db/migrations/ db/migrations/
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION
 
-USER 10001
+# Kein Benutzer-Eintrag nötig: numerische UID/GID (passt zu runAsUser im Chart)
+USER 10001:10001
 WORKDIR /app/backend
 EXPOSE 8000
 VOLUME ["/data"]

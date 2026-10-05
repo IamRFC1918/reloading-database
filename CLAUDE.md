@@ -78,6 +78,15 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
   `appVersion` sind immer gleich, die CI bricht sonst ab. Image-Tag =
   appVersion, daher braucht `values.yaml` keinen festen Tag. Immer
   `scripts/release.sh` benutzen, nie Tags von Hand setzen.
+- **Basisimage Wolfi** (`cgr.dev/chainguard/wolfi-base`, per Digest gepinnt,
+  Dependabot aktualisiert) mit `apk add python-3.12`, statt Debian `python:3.12-slim`.
+  Es nutzt glibc, also laufen die normalen manylinux-Wheels. Alpine/musl wurde
+  bewusst nicht gewählt (Wheel-Kompatibilität, langsamere Python-Builds). Ergebnis:
+  0 Trivy-Funde statt 166 (davon 44 unbehobene HIGH), 152 statt 244 MB. Das
+  Chainguard-`python`-Image wurde nicht genommen, weil kostenlos nur `:latest`
+  verfügbar ist und die Python-Minor-Version dann wandert. Shell und apk bleiben
+  im Image (Teil von wolfi-base). Entfernen bricht den ldconfig-Trigger, und als
+  Non-root mit read-only Root-FS kann apk nichts installieren.
 - **CI-Actions sind auf Commit-SHAs gepinnt** (Kommentar mit Versionsnummer).
   Updates kommen über Dependabot. Trivy-Version steht in `TRIVY_VERSION`.
 - **Ein Replika, ein Gunicorn-Worker mit Threads**: RWO-PVC für Fotos,
@@ -121,10 +130,8 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
 - Fotos werden in Originalgröße gespeichert (kein Verkleinern, EXIF bleibt).
   Das Foto-PVC ist nicht im Backup-CronJob enthalten.
 - Keine Offline-Fähigkeit/Service-Worker (bewusst nicht in Version 1).
-- Das Debian-Basisimage (python:3.12-slim, Debian 13) hat unbehobene HIGH-CVEs
-  (util-linux, ncurses, systemd-libs, perl). Das Trivy-Gate ignoriert sie
-  (`ignore-unfixed`). Langfristig wäre ein distroless- oder Chainguard-Basisimage
-  eine Option.
+- Das MariaDB-Image (offizielles `mariadb`, Ubuntu-basiert) wird nicht von
+  Trivy gescannt und hat typischerweise unbehobene Basis-CVEs.
 - SARIF-Upload in den Security-Tab braucht bei privaten Repos GitHub Advanced
   Security (Schritt ist `continue-on-error`).
 - Kein UI zum Ändern des eigenen Passworts (nur `manage.py create-user`).
