@@ -1,0 +1,323 @@
+# CI/CD: Lint, Tests, Helm, Trivy -> Image (GHCR) -> Release (Chart + GitHub-Release)
+#
+# Versionierung: Semantic Versioning über Git-Tags "vX.Y.Z" (optional "-rc.1" o. Ä.).
+# Ein Release entsteht mit scripts/release.sh X.Y.Z (setzt Chart.yaml, committet, taggt).
+#   Push auf main  -> Image :edge und :sha-xxxxxxx
+#   Tag vX.Y.Z     -> Image :X.Y.Z, :X.Y, :X, :latest + Helm-Chart (OCI) + GitHub-Release
+#   Pull Request   -> nur bauen und prüfen, nichts veröffentlichen
+#
+# Alle Actions sind auf Commit-SHAs gepinnt (Updates über Dependabot).
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CHART_DIR: charts/ladedaten
+  TRIVY_VERSION: v0.75.0
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  version:
+    name: Version bestimmen
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: v
+        name: SemVer prüfen
+        run: |
+          chart_version=$(awk '/^version:/ {print $2}' "$CHART_DIR/Chart.yaml" | tr -d '"')
+          app_version=$(awk '/^appVersion:/ {print $2}' "$CHART_DIR/Chart.yaml" | tr -d '"')
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            semver='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$'
+            if [[ ! "$GITHUB_REF_NAME" =~ $semver ]]; then
+              echo "::error::Tag '$GITHUB_REF_NAME' ist keine SemVer-Version (vX.Y.Z)"; exit 1
+            fi
+            version="${GITHUB_REF_NAME#v}"
+            if [[ "$version/$version" != "$chart_version/$app_version" ]]; then
+              echo "::error::Tag $version passt nicht zu Chart.yaml (version=$chart_version, appVersion=$app_version). scripts/release.sh benutzen."
+              exit 1
+            fi
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            version="${chart_version}-dev.${GITHUB_SHA::7}"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version" >> "$GITHUB_STEP_SUMMARY"
+
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: "**/requirements*.txt"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check --output-format=github .
+      - run: ruff format --check db/migrations
+
+  test:
+    name: Tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: "**/requirements*.txt"
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q --junitxml=report.xml
+      - name: Migration passt zu den Modellen
+        env:
+          DATABASE_URL: sqlite:///ci.db
+        run: |
+          alembic -c db/alembic.ini upgrade head
+          alembic -c db/alembic.ini check
+
+  mariadb:
+    name: Migration gegen MariaDB
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root-ci
+          MARIADB_DATABASE: ladedaten
+          MARIADB_USER: ladedaten
+          MARIADB_PASSWORD: ladedaten-ci
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_NAME: ladedaten
+      DB_USER: ladedaten
+      DB_PASSWORD: ladedaten-ci
+      ADMIN_USERNAME: ci
+      ADMIN_PASSWORD: ci-passwort-123
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: "**/requirements*.txt"
+      - run: pip install -r backend/requirements.txt
+      - name: migrate (zweimal -> idempotent)
+        run: |
+          python backend/manage.py migrate
+          python backend/manage.py migrate
+      - name: App starten und /readyz prüfen
+        working-directory: backend
+        run: |
+          gunicorn --bind 127.0.0.1:8000 --daemon "app:create_app()"
+          for _ in $(seq 1 20); do curl -sf http://127.0.0.1:8000/readyz && exit 0; sleep 1; done
+          exit 1
+
+  helm:
+    name: Helm lint/template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.0
+      - run: |
+          helm lint "$CHART_DIR" --strict
+          helm lint "$CHART_DIR" --strict -f "$CHART_DIR/values-example.yaml"
+          helm template t "$CHART_DIR" -f "$CHART_DIR/values-example.yaml" > /dev/null
+          helm template t "$CHART_DIR" --set database.mode=external \
+            --set database.external.existingSecret=db --set backup.enabled=true \
+            --set networkPolicy.enabled=true --set global.imageRegistry=mirror.local > /dev/null
+
+  trivy-repo:
+    name: Trivy (Abhängigkeiten, Secrets, IaC)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Bericht für den Security-Tab (alle Schweregrade, bricht nicht ab)
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          skip-dirs: venv,tests
+          format: sarif
+          output: trivy-repo.sarif
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        # Code Scanning braucht bei privaten Repos GitHub Advanced Security
+        continue-on-error: true
+        with:
+          sarif_file: trivy-repo.sarif
+          category: trivy-repo
+      # Gate: behebbare CRITICAL/HIGH lassen den Build scheitern
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          skip-setup-trivy: true
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          skip-dirs: venv,tests
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+  image:
+    name: Image bauen, scannen, pushen
+    needs: [version, lint, test, mariadb, helm, trivy-repo]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: name
+        name: Image-Name (GHCR verlangt Kleinbuchstaben)
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ steps.name.outputs.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=edge,branch=main
+            type=sha,format=short
+          labels: |
+            org.opencontainers.image.title=Ladedaten
+            org.opencontainers.image.version=${{ needs.version.outputs.version }}
+      - name: Bauen (amd64, lokal für den Scan)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: ladedaten:scan
+          build-args: APP_VERSION=${{ needs.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Trivy-Bericht (SARIF)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          image-ref: ladedaten:scan
+          format: sarif
+          output: trivy-image.sarif
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        continue-on-error: true
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+      - name: Trivy-Gate (behebbare CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          skip-setup-trivy: true
+          image-ref: ladedaten:scan
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+      - name: SBOM erzeugen
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          skip-setup-trivy: true
+          image-ref: ladedaten:scan
+          format: cyclonedx
+          output: sbom.cdx.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: security-reports
+          path: |
+            trivy-image.sarif
+            sbom.cdx.json
+      - if: github.event_name != 'pull_request'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pushen (amd64 + arm64)
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: APP_VERSION=${{ needs.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    name: Release (Chart + GitHub-Release)
+    if: needs.version.outputs.release == 'true'
+    needs: [version, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.0
+      - name: Chart paketieren und nach GHCR (OCI) pushen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          helm package "$CHART_DIR" -d dist
+          echo "$GH_TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm push "dist/ladedaten-$VERSION.tgz" "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts"
+      - name: GitHub-Release anlegen
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prerelease=""
+          [[ "$VERSION" == *-* ]] && prerelease="--prerelease"
+          cat > notes.md <<NOTES
+          **Image:** \`${{ needs.image.outputs.image }}:$VERSION\` (linux/amd64, linux/arm64)
+
+          **Helm:**
+          \`\`\`bash
+          helm install ladedaten oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts/ladedaten --version $VERSION -f values.yaml
+          \`\`\`
+          NOTES
+          gh release create "$GITHUB_REF_NAME" "dist/ladedaten-$VERSION.tgz" \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md --generate-notes $prerelease

@@ -1,0 +1,27 @@
+{# Felder einer Testserie; `kurz` = Schnellerfassung (wenige Felder offen, Rest eingeklappt) #}
+{% from "macros.html" import feld, wert_von %}
+{% set schnell = ['datum', 'waffe', 'federstaerke', 'stueckzahl', 'schlitten_schliesst', 'anzahl_probleme', 'ladehemmungen', 'freitext'] %}
+{% set vorschlaege = {'waffe': waffen} %}
+<div class="raster">
+{% for f in test_felder if not kurz or f.name in schnell %}
+  {{ feld(f, wert_von(f, serie, werte), fehler, vorschlaege) }}
+{% endfor %}
+</div>
+{% if kurz %}
+<details class="mehr">
+  <summary>Weitere Felder (Streukreis, Rückstoß, v0, geänderte Parameter)</summary>
+  <div class="raster">
+  {% for f in test_felder if f.name not in schnell %}
+    {{ feld(f, wert_von(f, serie, werte), fehler, vorschlaege) }}
+  {% endfor %}
+  </div>
+</details>
+{% endif %}
+<div class="feld">
+  <span class="label">Fotos</span>
+  <div class="foto-knoepfe">
+    <label class="btn">📷 Kamera<input class="versteckt" name="fotos" type="file" accept="image/*" capture="environment" data-dateiname></label>
+    <label class="btn">🖼 Galerie<input class="versteckt" name="fotos" type="file" accept="image/*" multiple data-dateiname></label>
+  </div>
+  <p class="hilfe dateiname"></p>
+</div>

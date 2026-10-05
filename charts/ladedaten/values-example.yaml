@@ -1,0 +1,56 @@
+# Beispiel:
+#   helm install ladedaten oci://ghcr.io/iamrfc1918/charts/ladedaten --version 0.1.0 \
+#     -n ladedaten --create-namespace -f values-example.yaml
+# Image-Tag = Chart-appVersion, muss hier also nicht gesetzt werden.
+
+# Nur nötig, solange das GHCR-Paket privat ist:
+#   kubectl -n ladedaten create secret docker-registry ghcr \
+#     --docker-server=ghcr.io --docker-username=<github-user> --docker-password=<PAT mit read:packages>
+imagePullSecrets:
+  - name: ghcr
+
+auth:
+  adminUsername: schuetze
+  # python backend/manage.py hash-password
+  adminPasswordHash: "$argon2id$v=19$m=65536,t=3,p=4$HIER-DEN-EIGENEN-HASH-EINTRAGEN"
+
+ingress:
+  className: nginx
+  host: ladedaten.example.com
+  tls:
+    enabled: true
+    secretName: ladedaten-tls
+  certManager:
+    enabled: true
+    clusterIssuer: letsencrypt
+
+persistence:
+  size: 2Gi
+
+database:
+  mode: internal
+
+mariadb:
+  persistence:
+    size: 5Gi
+
+networkPolicy:
+  enabled: true
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+
+backup:
+  enabled: true
+  keep: 14
+
+# Ohne Internetzugang: alles aus dem internen Mirror ziehen
+# global:
+#   imageRegistry: registry.intern.example
+
+# Externe Datenbank statt mitgelieferter MariaDB:
+# database:
+#   mode: external
+#   external:
+#     existingSecret: ladedaten-db   # Keys: host, port, database, username, password

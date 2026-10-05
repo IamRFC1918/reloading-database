@@ -1,0 +1,11 @@
+.env
+/venv/
+/data/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.log
+/.claude/
+charts/**/*.tgz
+/dist/

@@ -1,0 +1,21 @@
+# Nur Tool-Konfiguration – die App wird nicht als Paket installiert.
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["backend", "tests", "db/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "auth", "backup", "checks", "config", "forms", "labels", "models", "seed", "storage", "units", "manage"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["backend"]
+# Modelle wie "Testserie" sind keine Testklassen
+python_classes = []
+filterwarnings = [
+    # SQLite kennt kein natives Decimal – nur in Tests relevant, MariaDB schon
+    "ignore:Dialect sqlite\\+pysqlite does \\*not\\* support Decimal:sqlalchemy.exc.SAWarning",
+]

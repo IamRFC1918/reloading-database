@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "macros.html" import hinweisliste, status_badge, csrf %}
+{% block title %}{{ lab.name }} – Ladedaten{% endblock %}
+{% block inhalt %}
+<div class="titelzeile">
+  <h1>{{ lab.name }}</h1>
+  {{ status_badge(lab) }}
+</div>
+
+<div class="aktionen">
+  <a class="btn btn-primaer" href="#erfassen">+ Erfahrung</a>
+  <a class="btn" href="{{ url_for('laborierung_bearbeiten', lab_id=lab.id) }}">Bearbeiten</a>
+  <form method="post" action="{{ url_for('laborierung_duplizieren', lab_id=lab.id) }}" class="inline">
+    {{ csrf() }}<button class="btn" type="submit" title="Kopie als Ausgangspunkt für die nächste Testserie">Duplizieren</button>
+  </form>
+  <form method="post" action="{{ url_for('laborierung_loeschen', lab_id=lab.id) }}" class="inline"
+        data-confirm="Laborierung „{{ lab.name }}“ mit allen Testserien löschen?">
+    {{ csrf() }}<button class="btn btn-gefahr" type="submit">Löschen</button>
+  </form>
+</div>
+
+{{ hinweisliste(lab) }}
+
+{% if lab.vorgaenger %}
+<section class="karte">
+  <h2>Änderungen ggü. Vorserie</h2>
+  <p class="hilfe">Ausgangspunkt: <a href="{{ url_for('laborierung', lab_id=lab.vorgaenger.id) }}">{{ lab.vorgaenger.name }}</a></p>
+  {% if aenderungen %}
+  <ul class="aenderungen">
+    {% for label, alt, neu in aenderungen %}<li><strong>{{ label }}:</strong> {{ alt }} → <strong>{{ neu }}</strong></li>{% endfor %}
+  </ul>
+  {% else %}<p>Keine Unterschiede bei den Ladeparametern.</p>{% endif %}
+</section>
+{% endif %}
+{% if nachfolger %}
+<p class="hilfe">Folgeserien: {% for n in nachfolger %}<a href="{{ url_for('laborierung', lab_id=n.id) }}">{{ n.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+{% endif %}
+
+<section class="karte">
+  <h2>Daten</h2>
+  {% for gruppe, felder in gruppen.items() %}
+  <h3>{{ gruppe }}</h3>
+  <dl class="daten">
+    {% for f in felder if lab[f.name] not in (none, '') %}
+      <dt>{{ f.label }}</dt>
+      <dd>{% if f.name == 'quelle' and lab.quelle.startswith('http') %}<a href="{{ lab.quelle }}" rel="noopener noreferrer" target="_blank">{{ lab.quelle }}</a>{% elif f.typ == 'textarea' %}<span class="umbruch">{{ lab[f.name] }}</span>{% else %}{{ f.anzeige(lab[f.name]) }}{% endif %}</dd>
+    {% endfor %}
+  </dl>
+  {% endfor %}
+</section>
+
+<section class="karte" id="erfassen">
+  <h2>Erfahrung erfassen</h2>
+  <form method="post" action="{{ url_for('testserie_neu', lab_id=lab.id) }}" enctype="multipart/form-data" class="formular schnell">
+    {{ csrf() }}
+    {% with serie=neue_serie, kurz=true, werte=none, fehler={} %}{% include "_testserie_felder.html" %}{% endwith %}
+    <button class="btn btn-primaer btn-breit" type="submit">Speichern</button>
+  </form>
+</section>
+
+<section class="karte">
+  <h2>Testserien ({{ lab.testserien|length }})</h2>
+  {% if not lab.testserien %}<p class="leer">Noch keine Testserie erfasst.</p>{% endif %}
+  {% for t in lab.testserien %}
+  <article class="serie" id="serie-{{ t.id }}">
+    <div class="zeile1">
+      <strong>{{ t.datum|datum }}{% if t.waffe %} · {{ t.waffe }}{% endif %}</strong>
+      {% if t.schlitten_schliesst is true %}<span class="tag tag-ok">Schlitten schließt</span>
+      {% elif t.schlitten_schliesst is false %}<span class="tag tag-fehler">Schlitten schließt nicht</span>{% endif %}
+    </div>
+    <dl class="daten kompakt">
+      {% for f in test_felder if f.name not in ('datum', 'waffe', 'schlitten_schliesst') and t[f.name] not in (none, '') %}
+        <dt>{{ f.label }}</dt><dd class="umbruch">{{ f.anzeige(t[f.name]) }}</dd>
+      {% endfor %}
+    </dl>
+    {% if t.fotos %}
+    <div class="fotos">
+      {% for foto in t.fotos %}<a href="{{ url_for('foto', pfad=foto.pfad) }}" target="_blank"><img src="{{ url_for('foto', pfad=foto.pfad) }}" alt="Foto {{ loop.index }}" loading="lazy"></a>{% endfor %}
+    </div>
+    {% endif %}
+    <a class="btn btn-klein" href="{{ url_for('testserie_bearbeiten', serie_id=t.id) }}">Bearbeiten</a>
+  </article>
+  {% endfor %}
+</section>
+
+<section class="karte" id="lose">
+  <h2>Lose ({{ lab.lose|length }})</h2>
+  {% for los in lab.lose %}
+  <article class="los">
+    <div class="zeile1"><strong>{{ los.los_nr }}</strong><span>{{ los.anzahl }} Stück · {{ los.datum|datum }}</span></div>
+    {% if los.notiz %}<p class="umbruch">{{ los.notiz }}</p>{% endif %}
+    <div class="aktionen">
+      <a class="btn btn-primaer" href="{{ url_for('los_etikett', los_id=los.id) }}">Aufkleber drucken</a>
+      <a class="btn" href="{{ url_for('los_etikett_pdf', los_id=los.id) }}">PDF</a>
+      <a class="btn" href="{{ url_for('los_etikett', los_id=los.id, bogen=1) }}">A4-Bogen</a>
+      <a class="btn btn-leise" href="{{ url_for('los_bearbeiten', los_id=los.id) }}">Bearbeiten</a>
+    </div>
+  </article>
+  {% endfor %}
+  <form method="post" action="{{ url_for('los_neu', lab_id=lab.id) }}" class="formular">
+    {{ csrf() }}
+    <h3>Neues Los</h3>
+    <div class="raster">
+      <div class="feld"><label for="los-anzahl">Anzahl *</label><input id="los-anzahl" name="anzahl" type="number" inputmode="numeric" min="1" step="1" required></div>
+      <div class="feld"><label for="los-datum">Datum *</label><input id="los-datum" name="datum" type="date" value="{{ heute.isoformat() }}" required></div>
+      <div class="feld"><label for="los-notiz">Notiz</label><input id="los-notiz" name="notiz" type="text"></div>
+    </div>
+    <button class="btn btn-primaer" type="submit">Los anlegen</button>
+    <p class="hilfe">Los-Nr. wird automatisch vergeben (Kaliber-Jahr-laufende Nr.).</p>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "macros.html" import feld, wert_von, csrf %}
+{% block title %}Los {{ los.los_nr }} – Ladedaten{% endblock %}
+{% block inhalt %}
+<h1>Los {{ los.los_nr }}</h1>
+<p class="hilfe">Laborierung: <a href="{{ url_for('laborierung', lab_id=los.laborierung_id) }}">{{ los.laborierung.name }}</a></p>
+<form method="post" class="formular" novalidate>
+  {{ csrf() }}
+  <div class="raster">{% for f in felder %}{{ feld(f, wert_von(f, los, werte), fehler) }}{% endfor %}</div>
+  <div class="aktionen">
+    <button class="btn btn-primaer" type="submit">Speichern</button>
+    <a class="btn btn-leise" href="{{ url_for('laborierung', lab_id=los.laborierung_id) }}#lose">Abbrechen</a>
+  </div>
+</form>
+<form method="post" action="{{ url_for('los_loeschen', los_id=los.id) }}" data-confirm="Los {{ los.los_nr }} löschen?">
+  {{ csrf() }}<button class="btn btn-gefahr" type="submit">Los löschen</button>
+</form>
+{% endblock %}

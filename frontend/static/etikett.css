@@ -1,0 +1,35 @@
+/* Druckansicht der Etiketten: schwarz auf weiß, Maße in mm.
+   --b/--h/--skala/--rand/--spalten setzt das Template. */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #000; background: #e5e5e5; }
+.werkzeug { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; padding: .75rem 1rem; background: #fff; border-bottom: 1px solid #bbb; font-size: 16px; }
+.werkzeug input[name=groesse] { font-size: 16px; padding: .4rem; }
+.werkzeug button, .werkzeug a { min-height: 44px; display: inline-flex; align-items: center; padding: 0 .9rem; font-size: 16px; }
+.blatt { padding: 1rem; display: flex; flex-wrap: wrap; gap: 4mm; justify-content: center; }
+
+.etikett {
+  width: var(--b); height: var(--h); background: #fff; border: .3mm solid #000;
+  padding: calc(2.5mm * var(--skala)); display: flex; flex-direction: column; overflow: hidden;
+  font-size: calc(7pt * var(--skala)); line-height: 1.25;
+}
+.etikett header { display: flex; justify-content: space-between; align-items: baseline; gap: 2mm; font-weight: 700; }
+.etikett .kaliber { font-size: calc(11pt * var(--skala)); }
+.etikett .losnr { font-size: calc(9pt * var(--skala)); white-space: nowrap; }
+.etikett .mitte { display: flex; gap: 2mm; flex: 1; margin-top: 1mm; min-height: 0; }
+.etikett table { border-collapse: collapse; flex: 1; align-self: flex-start; }
+.etikett th { text-align: left; font-weight: 400; padding-right: 2mm; white-space: nowrap; vertical-align: top; }
+.etikett td { font-weight: 700; word-break: break-word; }
+.etikett .qr { width: calc(var(--h) * .36); flex: none; }
+.etikett .qr svg { width: 100%; height: auto; display: block; }
+.etikett footer .fuss1 { display: flex; justify-content: space-between; }
+.etikett .notiz { display: flex; gap: 1mm; }
+.etikett .notiz span { flex: 1; border-bottom: .2mm solid #000; min-height: 1.2em; }
+
+@media print {
+  body { background: #fff; }
+  .werkzeug { display: none; }
+  .blatt { padding: 0; gap: 0; }
+  .einzeln .etikett { border: none; }
+  .bogen .blatt { padding: var(--rand); display: grid; grid-template-columns: repeat(var(--spalten), var(--b)); justify-content: start; }
+  .etikett { break-inside: avoid; }
+}

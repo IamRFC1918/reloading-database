@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "macros.html" import csrf %}
+{% block title %}Backup – Ladedaten{% endblock %}
+{% block inhalt %}
+<h1>Backup</h1>
+<section class="karte">
+  <h2>Export</h2>
+  <div class="aktionen">
+    <a class="btn btn-primaer" href="{{ url_for('export_json') }}">JSON herunterladen</a>
+    <a class="btn" href="{{ url_for('export_csv') }}">CSV (ZIP) herunterladen</a>
+  </div>
+  <p class="hilfe">JSON enthält alles in einer Datei. Das ZIP enthält laborierungen.csv, testserien.csv und lose.csv (Semikolon, Dezimalkomma – öffnet direkt in Excel/LibreOffice). Fotos sind nicht enthalten, nur ihre Pfade.</p>
+</section>
+<section class="karte">
+  <h2>Import</h2>
+  <form method="post" action="{{ url_for('backup_import') }}" enctype="multipart/form-data" class="formular"
+        data-confirm="Daten importieren? Es werden neue Datensätze angelegt.">
+    {{ csrf() }}
+    <div class="feld"><label for="datei">Datei (.json oder .zip)</label><input id="datei" name="datei" type="file" accept=".json,.zip,application/json,application/zip" required></div>
+    <button class="btn btn-primaer" type="submit">Importieren</button>
+  </form>
+  <p class="hilfe">Import legt immer neue Datensätze an (nichts wird überschrieben). Lose, deren Los-Nr. bereits existiert, werden übersprungen.</p>
+</section>
+{% endblock %}

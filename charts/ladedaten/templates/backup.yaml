@@ -1,0 +1,84 @@
+{{- if .Values.backup.enabled }}
+{{- $fullname := include "ladedaten.fullname" . }}
+{{- if not .Values.backup.persistence.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fullname }}-backup
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.backup.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backup.persistence.size }}
+---
+{{- end }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $fullname }}-backup
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            {{- include "ladedaten.selectorLabels" (dict "ctx" . "component" "backup") | nindent 12 }}
+        spec:
+          restartPolicy: OnFailure
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          automountServiceAccountToken: false
+          securityContext:
+            {{- toYaml .Values.mariadb.podSecurityContext | nindent 12 }}
+          containers:
+            - name: dump
+              # mariadb-dump stammt aus demselben Image wie die DB
+              image: {{ include "ladedaten.mariadbImage" . }}
+              imagePullPolicy: {{ .Values.mariadb.image.pullPolicy }}
+              env:
+                {{- include "ladedaten.dbEnv" . | nindent 16 }}
+                - name: KEEP
+                  value: {{ .Values.backup.keep | quote }}
+              command:
+                - /bin/bash
+                - -ec
+                - |
+                  datei="/backup/ladedaten-$(date +%Y%m%d-%H%M%S).sql.gz"
+                  MYSQL_PWD="$DB_PASSWORD" mariadb-dump -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" \
+                    --single-transaction --routines --default-character-set=utf8mb4 "$DB_NAME" \
+                    | gzip > "$datei.tmp"
+                  mv "$datei.tmp" "$datei"
+                  echo "Backup geschrieben: $datei"
+                  ls -1t /backup/ladedaten-*.sql.gz | tail -n +$((KEEP + 1)) | xargs -r rm -v
+              securityContext:
+                {{- toYaml .Values.mariadb.securityContext | nindent 16 }}
+              resources:
+                {{- toYaml .Values.backup.resources | nindent 16 }}
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: {{ .Values.backup.persistence.existingClaim | default (printf "%s-backup" $fullname) }}
+            - name: tmp
+              emptyDir: {}
+{{- end }}

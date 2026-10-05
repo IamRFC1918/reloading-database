@@ -1,0 +1,172 @@
+# Standardwerte für das Ladedaten-Chart. Beispiel für eine echte Installation:
+# values-example.yaml
+
+global:
+  # Überschreibt die Registry ALLER Images (App, MariaDB, Backup), z. B. ein
+  # interner Mirror für Umgebungen ohne Internetzugang.
+  imageRegistry: ""
+
+# Bei privatem GHCR-Paket: Secret vom Typ docker-registry mit einem PAT (read:packages)
+imagePullSecrets: []
+#  - name: ghcr
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  registry: ghcr.io
+  repository: iamrfc1918/reloading-database
+  # leer = Chart.appVersion (= Release-Version, z. B. 0.1.0)
+  tag: ""
+  pullPolicy: IfNotPresent
+
+app:
+  # Cookies nur über HTTPS (hinter TLS-Ingress immer true lassen)
+  sessionCookieSecure: true
+  # X-Forwarded-* vom Ingress auswerten (korrekte URLs im QR-Code)
+  trustProxy: true
+  labelSize: "90x60"
+  seedDemoData: true
+  maxUploadMB: 25
+  loginRateLimit: "10 per minute"
+  extraEnv: []
+
+auth:
+  # Vorhandenes Secret mit den Keys: secret-key, admin-username, admin-password-hash
+  existingSecret: ""
+  # leer = wird generiert und bei Upgrades beibehalten
+  secretKey: ""
+  adminUsername: schuetze
+  # Argon2-Hash: podman run --rm -it <image> python manage.py hash-password
+  adminPasswordHash: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: ""
+  host: ladedaten.example.com
+  annotations: {}
+  tls:
+    enabled: true
+    # Vorhandenes TLS-Secret oder Ziel-Secret für cert-manager
+    secretName: ladedaten-tls
+  certManager:
+    # setzt die Annotation cert-manager.io/cluster-issuer
+    enabled: false
+    clusterIssuer: letsencrypt
+
+# PVC für Foto-Uploads (Pfade stehen in der DB, Dateien hier)
+persistence:
+  enabled: true
+  existingClaim: ""
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 2Gi
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 384Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+database:
+  # internal = mitgelieferte MariaDB (StatefulSet unten), external = eigene DB
+  mode: internal
+  external:
+    # Secret mit Host, Port, Datenbank, Benutzer und Passwort
+    existingSecret: ""
+    hostKey: host
+    portKey: port
+    databaseKey: database
+    usernameKey: username
+    passwordKey: password
+
+# Nur bei database.mode=internal
+mariadb:
+  image:
+    registry: docker.io
+    repository: library/mariadb
+    tag: "11.4"
+    pullPolicy: IfNotPresent
+  auth:
+    database: ladedaten
+    username: ladedaten
+    # leer = wird generiert und bei Upgrades beibehalten
+    password: ""
+    rootPassword: ""
+    # Vorhandenes Secret mit den Keys: mariadb-password, mariadb-root-password
+    existingSecret: ""
+  persistence:
+    storageClass: ""
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+
+networkPolicy:
+  # App: Ingress nur auf den App-Port, Egress nur DNS + Datenbank.
+  # MariaDB: Ingress nur von App und Backup-Job.
+  enabled: false
+  # Woher darf die App erreicht werden? leer = von überall (Ingress-Controller)
+  ingressFrom: []
+  #  - namespaceSelector:
+  #      matchLabels:
+  #        kubernetes.io/metadata.name: ingress-nginx
+  # Bei database.mode=external: Ziel-Netz der DB
+  externalDatabase:
+    cidr: ""
+    port: 3306
+
+backup:
+  # Täglicher mysqldump (mariadb-dump) auf ein eigenes PVC
+  enabled: false
+  schedule: "30 3 * * *"
+  # Anzahl aufbewahrter Dumps
+  keep: 14
+  persistence:
+    existingClaim: ""
+    storageClass: ""
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 256Mi

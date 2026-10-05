@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Lose – Ladedaten{% endblock %}
+{% block inhalt %}
+<h1>Lose</h1>
+{% if not lose %}<p class="leer">Noch keine Lose. Lose werden in der Detailansicht einer Laborierung angelegt.</p>{% endif %}
+<ul class="liste">
+{% for los in lose %}
+  <li class="listeneintrag">
+    <div class="zeile1"><strong>{{ los.los_nr }}</strong><span>{{ los.anzahl }} Stück</span></div>
+    <div class="zeile2"><a href="{{ url_for('laborierung', lab_id=los.laborierung_id) }}#lose">{{ los.laborierung.name }}</a></div>
+    <div class="zeile3">{{ los.datum|datum }}{% if los.notiz %} · {{ los.notiz }}{% endif %}</div>
+    <div class="aktionen">
+      <a class="btn btn-klein" href="{{ url_for('los_etikett', los_id=los.id) }}">Aufkleber drucken</a>
+      <a class="btn btn-klein" href="{{ url_for('los_etikett_pdf', los_id=los.id) }}">PDF</a>
+    </div>
+  </li>
+{% endfor %}
+</ul>
+{% endblock %}

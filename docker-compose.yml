@@ -1,0 +1,47 @@
+# Lokaler Test: App + MariaDB.  docker compose up --build  ->  http://localhost:8000
+# Werte kommen aus .env (siehe .env.example).
+services:
+  db:
+    image: docker.io/library/mariadb:11
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD in .env setzen}
+      MARIADB_DATABASE: ${DB_NAME:-ladedaten}
+      MARIADB_USER: ${DB_USER:-ladedaten}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD in .env setzen}
+    volumes:
+      - mariadb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  migrate:
+    build: .
+    command: ["python", "manage.py", "migrate"]
+    env_file: .env
+    environment: &app-env
+      DB_HOST: db
+      DB_PORT: "3306"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build: .
+    env_file: .env
+    environment:
+      <<: *app-env
+      SESSION_COOKIE_SECURE: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - fotos:/data/fotos
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  mariadb:
+  fotos:

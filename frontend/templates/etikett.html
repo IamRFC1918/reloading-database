@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Etikett {{ los.los_nr }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='etikett.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  {# Größe kommt aus den Parametern, daher hier statt in etikett.css #}
+  <style>
+    @page { size: {{ '210mm 297mm' if bogen else '%dmm %dmm'|format(breite, hoehe) }}; margin: 0; }
+    :root { --b: {{ breite }}mm; --h: {{ hoehe }}mm; --skala: {{ hoehe / 60 }}; --rand: {{ rand }}mm; --spalten: {{ cols }}; }
+  </style>
+</head>
+<body class="{{ 'bogen' if bogen else 'einzeln' }}">
+  <form class="werkzeug" method="get">
+    <a href="{{ url_for('laborierung', lab_id=los.laborierung_id) }}#lose">← Zurück</a>
+    <label>Größe (mm) <input name="groesse" value="{{ breite }}x{{ hoehe }}" size="7" pattern="\d{2,3}[xX]\d{2,3}"></label>
+    <input type="hidden" name="qr" value="0">
+    <label><input type="checkbox" name="qr" value="1" {% if mit_qr %}checked{% endif %}> QR-Code</label>
+    <label><input type="checkbox" name="bogen" value="1" {% if bogen %}checked{% endif %}> A4-Bogen</label>
+    <button type="submit">Übernehmen</button>
+    <button type="button" data-print>Drucken</button>
+    <a href="{{ url_for('los_etikett_pdf', los_id=los.id, groesse='%dx%d'|format(breite, hoehe), qr=1 if mit_qr else 0, bogen=1 if bogen else none) }}">PDF</a>
+  </form>
+
+  <div class="blatt">
+  {% for _ in range(anzahl) %}
+    <section class="etikett">
+      <header><span class="kaliber">{{ daten.kaliber }}</span><span class="losnr">{{ daten.los_nr }}</span></header>
+      <div class="mitte">
+        <table>
+          {% for label, wert in daten.zeilen %}<tr><th>{{ label }}</th><td>{{ wert }}</td></tr>{% endfor %}
+        </table>
+        {% if qr %}<div class="qr">{{ qr|safe }}</div>{% endif %}
+      </div>
+      <footer>
+        <div class="fuss1"><span>Datum: {{ daten.datum }}</span><span>Anzahl: {{ daten.anzahl }}</span></div>
+        <div class="notiz">Notiz: <span>{{ daten.notiz }}</span></div>
+      </footer>
+    </section>
+  {% endfor %}
+  </div>
+</body>
+</html>

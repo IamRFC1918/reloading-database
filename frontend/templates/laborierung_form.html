@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "macros.html" import feld, wert_von, csrf %}
+{% block title %}{{ 'Laborierung bearbeiten' if lab.id else 'Neue Laborierung' }} – Ladedaten{% endblock %}
+{% block inhalt %}
+<h1>{{ 'Laborierung bearbeiten' if lab.id else 'Neue Laborierung' }}</h1>
+{% if lab.vorgaenger %}<p class="hilfe">Ausgangspunkt: <a href="{{ url_for('laborierung', lab_id=lab.vorgaenger.id) }}">{{ lab.vorgaenger.name }}</a></p>{% endif %}
+<form method="post" class="formular" novalidate>
+  {{ csrf() }}
+  {% for gruppe, felder in gruppen.items() %}
+  <fieldset class="gruppe">
+    <legend>{{ gruppe }}</legend>
+    <div class="raster">
+    {% for f in felder %}
+      {{ feld(f, wert_von(f, lab, werte), fehler, vorschlaege) }}
+    {% endfor %}
+    </div>
+  </fieldset>
+  {% endfor %}
+  <p class="hilfe">Das Tool gibt keine Ladedaten vor. Es dokumentiert nur eigene Angaben aus Ladetabellen und warnt, wenn die Ladung über der eingetragenen Max-Ladung liegt.</p>
+  <div class="aktionen">
+    <button class="btn btn-primaer" type="submit">Speichern</button>
+    <a class="btn btn-leise" href="{{ url_for('laborierung', lab_id=lab.id) if lab.id else url_for('index') }}">Abbrechen</a>
+  </div>
+</form>
+{% endblock %}

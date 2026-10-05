@@ -1,0 +1,51 @@
+{# Generisches Formularfeld aus forms.Feld. `wert` ist bereits ein String fürs value-Attribut. #}
+{% macro feld(f, wert, fehler={}, vorschlaege={}) %}
+<div class="feld feld-{{ f.typ }}{% if fehler.get(f.name) %} hat-fehler{% endif %}">
+  {% if f.typ == 'janein' %}
+  <fieldset class="janein">
+    <legend>{{ f.label }}</legend>
+    <label class="knopf-ja"><input type="radio" name="{{ f.name }}" value="ja" {% if wert == 'ja' %}checked{% endif %}><span>Ja</span></label>
+    <label class="knopf-nein"><input type="radio" name="{{ f.name }}" value="nein" {% if wert == 'nein' %}checked{% endif %}><span>Nein</span></label>
+    <label class="knopf-offen"><input type="radio" name="{{ f.name }}" value="" {% if not wert %}checked{% endif %}><span>–</span></label>
+  </fieldset>
+  {% else %}
+  <label for="f-{{ f.name }}">{{ f.label }}{% if f.einheit %} <span class="einheit">({{ f.einheit }})</span>{% endif %}{% if f.pflicht %} *{% endif %}</label>
+  {% if f.typ == 'textarea' %}
+    <textarea id="f-{{ f.name }}" name="{{ f.name }}" rows="3">{{ wert }}</textarea>
+  {% elif f.typ == 'select' %}
+    <select id="f-{{ f.name }}" name="{{ f.name }}">
+      {% if not f.pflicht and f.name != 'status' %}<option value="">–</option>{% endif %}
+      {% for w, t in f.auswahl %}<option value="{{ w }}" {% if w == wert %}selected{% endif %}>{{ t }}</option>{% endfor %}
+    </select>
+  {% elif f.typ == 'dezimal' %}
+    <input id="f-{{ f.name }}" name="{{ f.name }}" type="text" inputmode="decimal" autocomplete="off"
+           pattern="[0-9]*[.,]?[0-9]*" value="{{ wert }}" placeholder="0,0">
+  {% elif f.typ == 'int' %}
+    <input id="f-{{ f.name }}" name="{{ f.name }}" type="number" inputmode="numeric" min="0" step="1" value="{{ wert }}">
+  {% elif f.typ == 'datum' %}
+    <input id="f-{{ f.name }}" name="{{ f.name }}" type="date" value="{{ wert }}" {% if f.pflicht %}required{% endif %}>
+  {% else %}
+    <input id="f-{{ f.name }}" name="{{ f.name }}" type="text" value="{{ wert }}" {% if f.pflicht %}required{% endif %}
+           {% if vorschlaege.get(f.name) %}list="dl-{{ f.name }}"{% endif %} autocomplete="off">
+    {% if vorschlaege.get(f.name) %}
+    <datalist id="dl-{{ f.name }}">{% for v in vorschlaege[f.name] %}<option value="{{ v }}">{% endfor %}</datalist>
+    {% endif %}
+  {% endif %}
+  {% endif %}
+  {% if fehler.get(f.name) %}<p class="fehlertext">{{ fehler[f.name] }}</p>
+  {% elif f.hilfe %}<p class="hilfe">{{ f.hilfe }}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{# Aktueller Wert: nach Validierungsfehler die Rohdaten, sonst aus dem Objekt #}
+{% macro wert_von(f, obj, werte) %}{% if werte is not none %}{{ werte.get(f.name, '') }}{% else %}{{ f.formwert(obj[f.name]) }}{% endif %}{% endmacro %}
+
+{% macro hinweisliste(lab) %}
+{% for h in hinweise(lab) %}
+  <div class="hinweis hinweis-{{ h.stufe }}">{% if h.stufe == 'warnung' %}⚠ {% endif %}{{ h.text }}</div>
+{% endfor %}
+{% endmacro %}
+
+{% macro status_badge(lab) %}<span class="status status-{{ lab.status }}">{{ lab.status_text }}</span>{% endmacro %}
+
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}

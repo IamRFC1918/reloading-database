@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f2a33">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Ladedaten{% endblock %}</title>
+  <link rel="manifest" href="{{ url_for('manifest') }}">
+  <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <header class="kopf">
+    <a class="marke" href="{{ url_for('index') }}">Ladedaten</a>
+    {% if current_user.is_authenticated %}
+    <nav class="nav">
+      <a href="{{ url_for('index') }}" {% if request.endpoint == 'index' %}aria-current="page"{% endif %}>Laborierungen</a>
+      <a href="{{ url_for('lose') }}" {% if request.endpoint == 'lose' %}aria-current="page"{% endif %}>Lose</a>
+      <a href="{{ url_for('backup_seite') }}" {% if request.endpoint == 'backup_seite' %}aria-current="page"{% endif %}>Backup</a>
+      <form method="post" action="{{ url_for('logout') }}" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="link" type="submit">Abmelden</button>
+      </form>
+    </nav>
+    {% endif %}
+  </header>
+  <main class="inhalt">
+    {% for kategorie, text in get_flashed_messages(with_categories=true) %}
+      <div class="meldung meldung-{{ kategorie }}" role="status">{{ text }}</div>
+    {% endfor %}
+    {% block inhalt %}{% endblock %}
+  </main>
+  <footer class="fuss">Ladedaten {{ app_version }}</footer>
+</body>
+</html>

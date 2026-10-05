@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Ladedaten Helm-Chart",
+  "type": "object",
+  "definitions": {
+    "image": {
+      "type": "object",
+      "required": ["repository"],
+      "properties": {
+        "registry": {"type": "string"},
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string"},
+        "pullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "properties": {
+        "existingClaim": {"type": "string"},
+        "storageClass": {"type": "string"},
+        "size": {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?(Ki|Mi|Gi|Ti)$"}
+      }
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "requests": {"type": "object"},
+        "limits": {"type": "object"}
+      }
+    }
+  },
+  "required": ["image", "database", "mariadb"],
+  "properties": {
+    "global": {
+      "type": "object",
+      "properties": {"imageRegistry": {"type": "string"}}
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "items": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}
+    },
+    "image": {"$ref": "#/definitions/image"},
+    "app": {
+      "type": "object",
+      "properties": {
+        "sessionCookieSecure": {"type": "boolean"},
+        "trustProxy": {"type": "boolean"},
+        "labelSize": {"type": "string", "pattern": "^[0-9]{2,3}x[0-9]{2,3}$"},
+        "seedDemoData": {"type": "boolean"},
+        "maxUploadMB": {"type": "integer", "minimum": 1},
+        "loginRateLimit": {"type": "string"},
+        "extraEnv": {"type": "array"}
+      }
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "existingSecret": {"type": "string"},
+        "secretKey": {"type": "string"},
+        "adminUsername": {"type": "string"},
+        "adminPasswordHash": {
+          "type": "string",
+          "anyOf": [{"maxLength": 0}, {"pattern": "^\\$argon2"}],
+          "description": "Argon2-Hash (python manage.py hash-password), kein Klartext"
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": {"type": "string", "enum": ["ClusterIP", "NodePort", "LoadBalancer"]},
+        "port": {"type": "integer"}
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "className": {"type": "string"},
+        "host": {"type": "string"},
+        "annotations": {"type": "object"},
+        "tls": {
+          "type": "object",
+          "properties": {"enabled": {"type": "boolean"}, "secretName": {"type": "string"}}
+        },
+        "certManager": {
+          "type": "object",
+          "properties": {"enabled": {"type": "boolean"}, "clusterIssuer": {"type": "string"}}
+        }
+      }
+    },
+    "persistence": {
+      "allOf": [{"$ref": "#/definitions/persistence"}],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "accessMode": {"type": "string", "enum": ["ReadWriteOnce", "ReadWriteMany", "ReadWriteOncePod"]}
+      }
+    },
+    "resources": {"$ref": "#/definitions/resources"},
+    "database": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": {"type": "string", "enum": ["internal", "external"]},
+        "external": {
+          "type": "object",
+          "properties": {
+            "existingSecret": {"type": "string"},
+            "hostKey": {"type": "string"},
+            "portKey": {"type": "string"},
+            "databaseKey": {"type": "string"},
+            "usernameKey": {"type": "string"},
+            "passwordKey": {"type": "string"}
+          }
+        }
+      }
+    },
+    "mariadb": {
+      "type": "object",
+      "properties": {
+        "image": {"$ref": "#/definitions/image"},
+        "auth": {
+          "type": "object",
+          "properties": {
+            "database": {"type": "string", "minLength": 1},
+            "username": {"type": "string", "minLength": 1},
+            "password": {"type": "string"},
+            "rootPassword": {"type": "string"},
+            "existingSecret": {"type": "string"}
+          }
+        },
+        "persistence": {"$ref": "#/definitions/persistence"},
+        "resources": {"$ref": "#/definitions/resources"}
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "ingressFrom": {"type": "array"},
+        "externalDatabase": {
+          "type": "object",
+          "properties": {"cidr": {"type": "string"}, "port": {"type": "integer"}}
+        }
+      }
+    },
+    "backup": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "schedule": {"type": "string"},
+        "keep": {"type": "integer", "minimum": 1},
+        "persistence": {"$ref": "#/definitions/persistence"},
+        "resources": {"$ref": "#/definitions/resources"}
+      }
+    }
+  }
+}

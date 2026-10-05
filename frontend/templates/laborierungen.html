@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "macros.html" import status_badge %}
+{% block inhalt %}
+<div class="titelzeile">
+  <h1>Laborierungen</h1>
+  <a class="btn btn-primaer" href="{{ url_for('laborierung_neu') }}">+ Neu</a>
+</div>
+
+<form method="get" class="filter" data-auto-submit>
+  <input type="search" name="suche" value="{{ filt.suche or '' }}" placeholder="Name suchen" aria-label="Name suchen">
+  <select name="kaliber" aria-label="Kaliber">
+    <option value="">Alle Kaliber</option>
+    {% for k in kaliber_liste %}<option {% if k == filt.kaliber %}selected{% endif %}>{{ k }}</option>{% endfor %}
+  </select>
+  <select name="pulver" aria-label="Pulver">
+    <option value="">Alle Pulver</option>
+    {% for p in pulver_liste %}<option {% if p == filt.pulver %}selected{% endif %}>{{ p }}</option>{% endfor %}
+  </select>
+  <select name="status" aria-label="Status">
+    <option value="">Alle Status</option>
+    {% for w, t in STATUS.items() %}<option value="{{ w }}" {% if w == filt.status %}selected{% endif %}>{{ t }}</option>{% endfor %}
+  </select>
+  <noscript><button class="btn" type="submit">Filtern</button></noscript>
+  {% if filt.values()|select|list %}<a class="btn btn-leise" href="{{ url_for('index') }}">Zurücksetzen</a>{% endif %}
+</form>
+
+{% if not laborierungen %}
+  <p class="leer">Keine Laborierungen gefunden.</p>
+{% endif %}
+<ul class="liste">
+{% for lab in laborierungen %}
+  {% set warn = hinweise(lab)|selectattr('stufe', 'equalto', 'warnung')|list %}
+  <li>
+    <a class="listeneintrag{% if warn %} mit-warnung{% endif %}" href="{{ url_for('laborierung', lab_id=lab.id) }}">
+      <div class="zeile1">
+        <strong>{{ lab.name }}</strong>
+        {{ status_badge(lab) }}
+      </div>
+      <div class="zeile2">
+        {{ lab.kaliber }}
+        {% if lab.geschoss_gewicht_gr %} · {{ lab.geschoss_gewicht_gr|dez }} gr {{ lab.geschoss_art or '' }}{% endif %}
+        {% if lab.pulver %} · {{ lab.pulver }} {{ lab.ladung_gr|dez }}{% if lab.ladung_gr %} gr{% endif %}{% endif %}
+        {% if lab.l6_mm %} · L6 {{ lab.l6_mm|dez }} mm{% endif %}
+      </div>
+      <div class="zeile3">
+        {{ lab.datum|datum }} · {{ lab.testserien|length }} Testserie(n) · {{ lab.lose|length }} Los(e)
+        {% if warn %}<span class="warn-text">⚠ über Max-Ladung</span>{% endif %}
+      </div>
+    </a>
+  </li>
+{% endfor %}
+</ul>
+{% endblock %}

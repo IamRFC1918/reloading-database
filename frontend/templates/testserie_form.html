@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "macros.html" import csrf %}
+{% block title %}Testserie bearbeiten – Ladedaten{% endblock %}
+{% block inhalt %}
+<h1>Testserie bearbeiten</h1>
+<p class="hilfe">Laborierung: <a href="{{ url_for('laborierung', lab_id=serie.laborierung_id) }}">{{ serie.laborierung.name }}</a></p>
+<form method="post" enctype="multipart/form-data" class="formular" novalidate>
+  {{ csrf() }}
+  {% with test_felder=felder, kurz=false %}{% include "_testserie_felder.html" %}{% endwith %}
+  <div class="aktionen">
+    <button class="btn btn-primaer" type="submit">Speichern</button>
+    <a class="btn btn-leise" href="{{ url_for('laborierung', lab_id=serie.laborierung_id) }}#serie-{{ serie.id }}">Abbrechen</a>
+  </div>
+</form>
+
+{% if serie.fotos %}
+<section class="karte">
+  <h2>Fotos</h2>
+  <div class="fotos">
+  {% for foto in serie.fotos %}
+    <figure>
+      <a href="{{ url_for('foto', pfad=foto.pfad) }}" target="_blank"><img src="{{ url_for('foto', pfad=foto.pfad) }}" alt="{{ foto.originalname or 'Foto' }}" loading="lazy"></a>
+      <form method="post" action="{{ url_for('foto_loeschen', foto_id=foto.id) }}" data-confirm="Foto löschen?">
+        {{ csrf() }}<button class="btn btn-klein btn-gefahr" type="submit">Löschen</button>
+      </form>
+    </figure>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<form method="post" action="{{ url_for('testserie_loeschen', serie_id=serie.id) }}" data-confirm="Testserie wirklich löschen?">
+  {{ csrf() }}<button class="btn btn-gefahr" type="submit">Testserie löschen</button>
+</form>
+{% endblock %}

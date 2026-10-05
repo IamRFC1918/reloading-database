@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ladedaten.fullname" . }}
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+data:
+  SESSION_COOKIE_SECURE: {{ .Values.app.sessionCookieSecure | quote }}
+  TRUST_PROXY: {{ .Values.app.trustProxy | quote }}
+  LABEL_SIZE: {{ .Values.app.labelSize | quote }}
+  SEED_DEMO_DATA: {{ .Values.app.seedDemoData | quote }}
+  MAX_UPLOAD_MB: {{ .Values.app.maxUploadMB | quote }}
+  LOGIN_RATE_LIMIT: {{ .Values.app.loginRateLimit | quote }}
+  UPLOAD_DIR: /data/fotos
+  DB_WAIT_SECONDS: "180"

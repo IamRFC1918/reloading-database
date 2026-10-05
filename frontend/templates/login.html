@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Anmelden – Ladedaten{% endblock %}
+{% block inhalt %}
+<section class="karte schmal">
+  <h1>Anmelden</h1>
+  <form method="post" class="formular">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="feld">
+      <label for="name">Benutzer</label>
+      <input id="name" name="name" type="text" autocomplete="username" autocapitalize="none" required autofocus>
+    </div>
+    <div class="feld">
+      <label for="passwort">Passwort</label>
+      <input id="passwort" name="passwort" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn btn-primaer btn-breit" type="submit">Anmelden</button>
+  </form>
+</section>
+{% endblock %}

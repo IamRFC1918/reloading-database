@@ -1,0 +1,108 @@
+{{- if eq .Values.database.mode "internal" }}
+{{- $name := include "ladedaten.mariadbName" . }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mariadb
+spec:
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+  selector:
+    {{- include "ladedaten.selectorLabels" (dict "ctx" . "component" "mariadb") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mariadb
+spec:
+  serviceName: {{ $name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ladedaten.selectorLabels" (dict "ctx" . "component" "mariadb") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ladedaten.selectorLabels" (dict "ctx" . "component" "mariadb") | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.mariadb.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mariadb
+          image: {{ include "ladedaten.mariadbImage" . }}
+          imagePullPolicy: {{ .Values.mariadb.image.pullPolicy }}
+          args: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+          env:
+            - name: MARIADB_DATABASE
+              value: {{ .Values.mariadb.auth.database | quote }}
+            - name: MARIADB_USER
+              value: {{ .Values.mariadb.auth.username | quote }}
+            - name: MARIADB_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ include "ladedaten.mariadbSecretName" . }}, key: mariadb-password}}
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ include "ladedaten.mariadbSecretName" . }}, key: mariadb-root-password}}
+          ports:
+            - name: mysql
+              containerPort: 3306
+          startupProbe:
+            exec: {command: ["healthcheck.sh", "--connect", "--innodb_initialized"]}
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            exec: {command: ["healthcheck.sh", "--connect"]}
+            periodSeconds: 20
+            timeoutSeconds: 5
+          readinessProbe:
+            exec: {command: ["healthcheck.sh", "--connect", "--innodb_initialized"]}
+            periodSeconds: 10
+            timeoutSeconds: 5
+          securityContext:
+            {{- toYaml .Values.mariadb.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.mariadb.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            # Schreibbare Pfade für readOnlyRootFilesystem
+            - name: run
+              mountPath: /run/mysqld
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.mariadb.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.mariadb.persistence.size }}
+{{- end }}
