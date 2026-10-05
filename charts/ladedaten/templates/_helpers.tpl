@@ -91,6 +91,18 @@ Aufruf: (dict "ctx" . "secret" "<name>" "key" "<key>" "value" <wert>)
   valueFrom: {secretKeyRef: {name: {{ $secret }}, key: {{ $ext.usernameKey }}}}
 - name: DB_PASSWORD
   valueFrom: {secretKeyRef: {name: {{ $secret }}, key: {{ $ext.passwordKey }}}}
+{{- else if eq .Values.database.mode "operator" }}
+{{- $op := .Values.database.operator }}
+- name: DB_HOST
+  value: {{ printf "%s.%s.svc" (include "ladedaten.operatorInstance" .) (include "ladedaten.operatorNamespace" .) }}
+- name: DB_PORT
+  value: "3306"
+- name: DB_NAME
+  value: {{ $op.database | quote }}
+- name: DB_USER
+  value: {{ $op.username | quote }}
+- name: DB_PASSWORD
+  valueFrom: {secretKeyRef: {name: {{ include "ladedaten.operatorUserSecret" . }}, key: password}}
 {{- else }}
 - name: DB_HOST
   value: {{ include "ladedaten.mariadbName" . }}
@@ -117,4 +129,34 @@ Aufruf: (dict "ctx" . "secret" "<name>" "key" "<key>" "value" <wert>)
 {{- with .Values.app.extraEnv }}
 {{ toYaml . }}
 {{- end }}
+{{- end }}
+
+{{/* ---------- mariadb-operator ---------- */}}
+
+{{/* Name der MariaDB-Instanz (eigene oder vorhandene) */}}
+{{- define "ladedaten.operatorInstance" -}}
+{{- if .Values.database.operator.createInstance -}}
+{{- include "ladedaten.mariadbName" . -}}
+{{- else -}}
+{{- required "database.operator.mariaDbRef.name ist bei createInstance=false Pflicht" .Values.database.operator.mariaDbRef.name -}}
+{{- end -}}
+{{- end }}
+
+{{- define "ladedaten.operatorNamespace" -}}
+{{- if .Values.database.operator.createInstance -}}
+{{- .Release.Namespace -}}
+{{- else -}}
+{{- .Values.database.operator.mariaDbRef.namespace | default .Release.Namespace -}}
+{{- end -}}
+{{- end }}
+
+{{- define "ladedaten.operatorUserSecret" -}}
+{{- .Values.database.operator.existingSecret | default (printf "%s-db" (include "ladedaten.fullname" .)) -}}
+{{- end }}
+
+{{- define "ladedaten.mariaDbRef" -}}
+mariaDbRef:
+  name: {{ include "ladedaten.operatorInstance" . }}
+  namespace: {{ include "ladedaten.operatorNamespace" . }}
+  waitForIt: true
 {{- end }}

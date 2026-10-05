@@ -14,5 +14,10 @@ Benutzer anlegen:
   kubectl -n {{ .Release.Namespace }} exec -it deploy/{{ include "ladedaten.fullname" . }} -- python manage.py create-user {{ .Values.auth.adminUsername }}
 {{- end }}
 
+{{- if eq .Values.database.mode "operator" }}
+Datenbank: mariadb-operator, Instanz {{ include "ladedaten.operatorNamespace" . }}/{{ include "ladedaten.operatorInstance" . }}
+  kubectl -n {{ .Release.Namespace }} get mariadb,database,user,grant
+{{- end }}
+
 Migrationen laufen bei jedem Pod-Start im Init-Container "migrate":
   kubectl -n {{ .Release.Namespace }} logs deploy/{{ include "ladedaten.fullname" . }} -c migrate

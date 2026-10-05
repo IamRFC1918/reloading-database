@@ -1,0 +1,111 @@
+{{- if eq .Values.database.mode "operator" }}
+{{- $op := .Values.database.operator }}
+{{- $fullname := include "ladedaten.fullname" . }}
+{{- $instance := include "ladedaten.operatorInstance" . }}
+{{- if not $op.existingSecret }}
+{{- $secret := include "ladedaten.operatorUserSecret" . }}
+# Passwort des App-Benutzers; der Operator legt damit den MariaDB-User an
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secret }}
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+type: Opaque
+data:
+  password: {{ include "ladedaten.persistentSecret" (dict "ctx" . "secret" $secret "key" "password" "value" $op.password) | b64enc | quote }}
+---
+{{- end }}
+{{- if $op.createInstance }}
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: {{ $instance }}
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mariadb
+  annotations:
+    # Datenbank überlebt ein "helm uninstall"
+    helm.sh/resource-policy: keep
+spec:
+  {{- with $op.instance.image }}
+  image: {{ . }}
+  {{- end }}
+  {{- with .Values.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rootPasswordSecretKeyRef:
+    name: {{ $instance }}-root
+    key: password
+    generate: true
+  replicas: 1
+  storage:
+    size: {{ $op.instance.storage.size }}
+    {{- with $op.instance.storage.storageClassName }}
+    storageClassName: {{ . }}
+    {{- end }}
+  myCnf: |
+    {{- $op.instance.myCnf | nindent 4 }}
+  # DB-Zugriff nur clusterintern -> kein TLS nötig
+  tls:
+    enabled: false
+  resources:
+    {{- toYaml $op.instance.resources | nindent 4 }}
+  {{- with .Values.nodeSelector }}
+  nodeSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.tolerations }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Database
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+spec:
+  {{- include "ladedaten.mariaDbRef" . | nindent 2 }}
+  name: {{ $op.database }}
+  characterSet: utf8mb4
+  collate: utf8mb4_unicode_ci
+  cleanupPolicy: {{ $op.cleanupPolicy }}
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: User
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+spec:
+  {{- include "ladedaten.mariaDbRef" . | nindent 2 }}
+  name: {{ $op.username }}
+  host: "%"
+  passwordSecretKeyRef:
+    name: {{ include "ladedaten.operatorUserSecret" . }}
+    key: password
+  maxUserConnections: {{ $op.maxUserConnections }}
+  cleanupPolicy: {{ $op.cleanupPolicy }}
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Grant
+metadata:
+  name: {{ $fullname }}
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+spec:
+  {{- include "ladedaten.mariaDbRef" . | nindent 2 }}
+  privileges: ["ALL PRIVILEGES"]
+  database: {{ $op.database }}
+  table: "*"
+  username: {{ $op.username }}
+  host: "%"
+  grantOption: false
+  cleanupPolicy: {{ $op.cleanupPolicy }}
+{{- end }}

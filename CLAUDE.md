@@ -71,6 +71,16 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
 - **Keine Ladedaten-Vorgaben.** Die Warnung vergleicht nur Ladung mit der
   selbst eingetragenen Max-Ladung der Quelle (`checks.py`). Das Tool soll keine
   „empfohlenen“ Werte, Tabellen oder Hochrechnungen bekommen.
+- **DB über mariadb-operator** (`database.mode: operator`, Standard): Das Chart
+  erzeugt `Database`/`User`/`Grant` (+ optional eigene `MariaDB`, `Backup`) statt
+  eines eigenen StatefulSets. `internal` (StatefulSet) und `external` bleiben für
+  Cluster ohne Operator. Mit `createInstance=false` lässt sich eine vorhandene
+  Instanz (auch in einem anderen Namespace, `mariaDbRef.namespace`) mitbenutzen.
+  DB-Host ist `<instanz>.<namespace>.svc`.
+- **DB-Verbindung ohne TLS** (Entscheidung des Nutzers: nur clusterintern). Die
+  eigene Operator-Instanz hat `tls.enabled: false`. Falls eine mitbenutzte
+  Instanz `tls.required: true` hat, müsste die App wieder TLS bekommen
+  (PyMySQL `connect_args={"ssl": {"ca": ...}}` + CA-Secret mounten).
 - **Migration im Init-Container statt Helm-Hook.** Bei der mitgelieferten
   MariaDB existiert die DB zum pre-install-Zeitpunkt noch nicht.
   `manage.py migrate` wartet auf die DB (`DB_WAIT_SECONDS`) und ist idempotent.
@@ -122,11 +132,17 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
   inkl. Rotation.
 - `helm lint --strict` und `helm template` (internal/external, Backup,
   NetworkPolicy, Mirror-Registry).
+- Operator-Modus per `kubectl apply --dry-run=server` gegen den Heim-Cluster
+  (mariadb-operator 26.3.0, inkl. Webhooks): eigene Instanz und Mitbenutzung
+  von `phpipam/phpipam-mariadb`. Noch keine echte Installation.
 
 ## Offene Punkte
 
-- Das Helm-Chart lief noch nicht in einem echten Cluster (nur lint/template
-  sowie die Container-Settings mit Podman).
+- Das Helm-Chart lief noch nicht in einem echten Cluster (nur lint/template,
+  Server-Dry-Run und die Container-Settings mit Podman). Ungetestet ist vor allem
+  der `Backup`-CR bei einer Instanz in einem anderen Namespace.
+- Im Heim-Cluster gibt es einen zweiten, NotReady-Node `localhost.localdomain`
+  mit derselben IP wie `k3s02` (vermutlich Altlast, nicht angefasst).
 - Fotos werden in Originalgröße gespeichert (kein Verkleinern, EXIF bleibt).
   Das Foto-PVC ist nicht im Backup-CronJob enthalten.
 - Keine Offline-Fähigkeit/Service-Worker (bewusst nicht in Version 1).

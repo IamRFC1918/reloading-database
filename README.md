@@ -77,15 +77,30 @@ Wichtige Werte (Details in `charts/ladedaten/values.yaml`):
 
 | Wert | Bedeutung |
 |---|---|
-| `database.mode` | `internal` (mitgelieferte MariaDB als StatefulSet) oder `external` |
+| `database.mode` | `operator` (Standard, mariadb-operator), `internal` (einfaches StatefulSet) oder `external` |
+| `database.operator.createInstance` | `true`: eigene MariaDB-Instanz, `false`: vorhandene über `mariaDbRef` mitbenutzen |
 | `database.external.existingSecret` | Secret mit `host`, `port`, `database`, `username`, `password` |
 | `auth.adminPasswordHash` / `auth.existingSecret` | Login (Argon2-Hash) |
 | `ingress.host`, `ingress.tls`, `ingress.certManager` | Erreichbarkeit/TLS |
 | `global.imageRegistry`, `imagePullSecrets` | Betrieb ohne Internet (interner Mirror) |
 | `networkPolicy.enabled` | App darf nur DNS + DB, DB nur von App/Backup |
-| `backup.enabled` | täglicher `mariadb-dump` auf eigenes PVC |
+| `backup.enabled` | täglicher logischer Dump auf eigenes PVC (Operator: `Backup`-CR, sonst CronJob) |
 
 Migrationen laufen im Init-Container `migrate` bei jedem Pod-Start.
+
+### mariadb-operator
+
+Mit `database.mode: operator` (Voraussetzung: [mariadb-operator](https://github.com/mariadb-operator/mariadb-operator)
+mit den CRDs `k8s.mariadb.com/v1alpha1`) legt das Chart an:
+
+- optional eine eigene `MariaDB`-Instanz (utf8mb4, PVC, Root-Passwort generiert)
+- `Database`, `User` (Passwort-Secret `<release>-db`, wird generiert) und `Grant`
+  (`ALL PRIVILEGES` nur auf die App-Datenbank)
+- bei `backup.enabled` einen `Backup`-CR (nur die App-Datenbank, gzip, PVC)
+
+`cleanupPolicy: Skip` und `helm.sh/resource-policy: keep` sorgen dafür, dass
+Daten ein `helm uninstall` überleben. Die DB-Verbindung ist bewusst
+unverschlüsselt (nur clusterintern, per NetworkPolicy eingrenzbar).
 
 ## CI/CD und Releases (GitHub Actions)
 

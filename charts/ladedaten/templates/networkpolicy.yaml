@@ -23,7 +23,18 @@ spec:
         - {port: 53, protocol: UDP}
         - {port: 53, protocol: TCP}
     # Nur zur Datenbank
-    {{- if eq .Values.database.mode "internal" }}
+    {{- if eq .Values.database.mode "operator" }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ include "ladedaten.operatorNamespace" . }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mariadb
+              app.kubernetes.io/instance: {{ include "ladedaten.operatorInstance" . }}
+      ports:
+        - port: 3306
+    {{- else if eq .Values.database.mode "internal" }}
     - to:
         - podSelector:
             matchLabels:
@@ -65,7 +76,7 @@ spec:
   # MariaDB braucht keinen ausgehenden Verkehr
   egress: []
 {{- end }}
-{{- if .Values.backup.enabled }}
+{{- if and .Values.backup.enabled (ne .Values.database.mode "operator") }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

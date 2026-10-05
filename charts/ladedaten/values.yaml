@@ -92,8 +92,52 @@ tolerations: []
 affinity: {}
 
 database:
-  # internal = mitgelieferte MariaDB (StatefulSet unten), external = eigene DB
-  mode: internal
+  # operator = mariadb-operator (k8s.mariadb.com): eigene Instanz oder vorhandene mitbenutzen
+  # internal = einfache MariaDB als StatefulSet (Cluster ohne Operator)
+  # external = beliebige DB, Zugangsdaten aus existingSecret
+  mode: operator
+
+  # Nur bei database.mode=operator
+  operator:
+    # true: Chart legt eine eigene MariaDB-Instanz (MariaDB-CR) an.
+    # false: vorhandene Instanz aus mariaDbRef mitbenutzen.
+    createInstance: true
+    mariaDbRef:
+      # Name einer vorhandenen Instanz (nur bei createInstance=false)
+      name: ""
+      # leer = Release-Namespace
+      namespace: ""
+    database: ladedaten
+    username: ladedaten
+    # leer = wird generiert und bei Upgrades beibehalten
+    password: ""
+    # Vorhandenes Secret mit dem Key "password" (statt password/Generierung)
+    existingSecret: ""
+    maxUserConnections: 20
+    # Skip: DB und Benutzer bleiben erhalten, wenn das Release gelöscht wird
+    cleanupPolicy: Skip
+    # Eigene Instanz (nur bei createInstance=true)
+    instance:
+      # leer = Standard-Image des Operators; für Air-Gap z. B. registry.intern/mariadb:11.8.5
+      image: ""
+      storage:
+        size: 2Gi
+        storageClassName: ""
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 768Mi
+      myCnf: |
+        [mariadb]
+        bind-address=*
+        default_storage_engine=InnoDB
+        character_set_server=utf8mb4
+        collation_server=utf8mb4_unicode_ci
+        innodb_buffer_pool_size=256M
+        max_allowed_packet=64M
+
   external:
     # Secret mit Host, Port, Datenbank, Benutzer und Passwort
     existingSecret: ""
@@ -155,11 +199,14 @@ networkPolicy:
     port: 3306
 
 backup:
-  # Täglicher mysqldump (mariadb-dump) auf ein eigenes PVC
+  # Täglicher logischer Dump auf ein eigenes PVC.
+  # mode=operator: Backup-CR des mariadb-operators, sonst CronJob mit mariadb-dump.
   enabled: false
   schedule: "30 3 * * *"
-  # Anzahl aufbewahrter Dumps
+  # Anzahl aufbewahrter Dumps (CronJob)
   keep: 14
+  # Aufbewahrung beim Operator-Backup (Go-Duration)
+  maxRetention: 336h
   persistence:
     existingClaim: ""
     storageClass: ""

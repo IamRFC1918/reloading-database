@@ -1,4 +1,34 @@
-{{- if .Values.backup.enabled }}
+{{- if and .Values.backup.enabled (eq .Values.database.mode "operator") }}
+# Logisches Backup über den mariadb-operator (nur die App-Datenbank)
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Backup
+metadata:
+  name: {{ include "ladedaten.fullname" . }}
+  labels:
+    {{- include "ladedaten.labels" . | nindent 4 }}
+spec:
+  {{- include "ladedaten.mariaDbRef" . | nindent 2 }}
+  schedule:
+    cron: {{ .Values.backup.schedule | quote }}
+  maxRetention: {{ .Values.backup.maxRetention }}
+  compression: gzip
+  databases: [{{ .Values.database.operator.database | quote }}]
+  {{- with .Values.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  storage:
+    persistentVolumeClaim:
+      accessModes: [ReadWriteOnce]
+      {{- with .Values.backup.persistence.storageClass }}
+      storageClassName: {{ . }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.backup.persistence.size }}
+  resources:
+    {{- toYaml .Values.backup.resources | nindent 4 }}
+{{- else if .Values.backup.enabled }}
 {{- $fullname := include "ladedaten.fullname" . }}
 {{- if not .Values.backup.persistence.existingClaim }}
 apiVersion: v1

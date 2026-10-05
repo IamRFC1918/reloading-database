@@ -15,7 +15,7 @@ auth:
   adminPasswordHash: "$argon2id$v=19$m=65536,t=3,p=4$HIER-DEN-EIGENEN-HASH-EINTRAGEN"
 
 ingress:
-  className: nginx
+  className: traefik
   host: ladedaten.example.com
   tls:
     enabled: true
@@ -26,24 +26,40 @@ ingress:
 
 persistence:
   size: 2Gi
+  storageClass: local-path
 
+# Datenbank über den mariadb-operator: eigene, kleine Instanz im Release-Namespace
 database:
-  mode: internal
+  mode: operator
+  operator:
+    createInstance: true
+    instance:
+      storage:
+        size: 2Gi
+        storageClassName: local-path
 
-mariadb:
-  persistence:
-    size: 5Gi
+# Alternative: vorhandene Operator-Instanz mitbenutzen (eigene DB + eigener User darin)
+# database:
+#   mode: operator
+#   operator:
+#     createInstance: false
+#     mariaDbRef:
+#       name: phpipam-mariadb
+#       namespace: phpipam
 
 networkPolicy:
   enabled: true
   ingressFrom:
     - namespaceSelector:
         matchLabels:
-          kubernetes.io/metadata.name: ingress-nginx
+          kubernetes.io/metadata.name: kube-system   # traefik (k3s)
 
+# Bei mode=operator als Backup-CR des Operators (logischer Dump auf PVC)
 backup:
   enabled: true
-  keep: 14
+  maxRetention: 336h
+  persistence:
+    storageClass: local-path
 
 # Ohne Internetzugang: alles aus dem internen Mirror ziehen
 # global:

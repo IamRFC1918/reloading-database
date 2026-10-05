@@ -28,8 +28,8 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      # Migration als Init-Container (nicht als Helm-Hook): Bei der
-      # mitgelieferten MariaDB existiert die DB vor pre-install noch nicht.
+      # Migration als Init-Container (nicht als Helm-Hook): Bei der mitgelieferten
+      # bzw. vom Operator angelegten DB existiert sie vor pre-install noch nicht.
       # "manage.py migrate" wartet auf die DB und ist idempotent.
       initContainers:
         - name: migrate

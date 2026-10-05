@@ -147,6 +147,11 @@ jobs:
           helm lint "$CHART_DIR" --strict
           helm lint "$CHART_DIR" --strict -f "$CHART_DIR/values-example.yaml"
           helm template t "$CHART_DIR" -f "$CHART_DIR/values-example.yaml" > /dev/null
+          helm template t "$CHART_DIR" --set database.operator.createInstance=false \
+            --set database.operator.mariaDbRef.name=shared-db --set backup.enabled=true \
+            --set networkPolicy.enabled=true > /dev/null
+          helm template t "$CHART_DIR" --set database.mode=internal \
+            --set backup.enabled=true --set networkPolicy.enabled=true > /dev/null
           helm template t "$CHART_DIR" --set database.mode=external \
             --set database.external.existingSecret=db --set backup.enabled=true \
             --set networkPolicy.enabled=true --set global.imageRegistry=mirror.local > /dev/null
