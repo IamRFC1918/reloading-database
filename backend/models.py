@@ -111,7 +111,10 @@ class Testserie(Base):
     streukreis_mm: Mapped[Decimal | None] = mapped_column(Dezimal)
     entfernung_m: Mapped[int | None] = mapped_column(Integer)
     rueckstoss: Mapped[str | None] = mapped_column(String(50))
+    # Mittelwert; wird aus v_einzelwerte berechnet, wenn Einzelwerte erfasst sind
     geschwindigkeit_ms: Mapped[Decimal | None] = mapped_column(Dezimal)
+    # Einzelschüsse vom Chronographen in m/s, Leerzeichen-getrennt (siehe ballistik.py)
+    v_einzelwerte: Mapped[str | None] = mapped_column(Text)
     geaenderte_parameter: Mapped[str | None] = mapped_column(Text)
     freitext: Mapped[str | None] = mapped_column(Text)
     erstellt_am: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

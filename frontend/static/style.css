@@ -120,3 +120,26 @@ input:focus, select:focus, textarea:focus { outline: 3px solid #9cc3e0; outline-
 @media (min-width: 900px) {
   .gruppe .raster { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* Geschwindigkeit (v0) */
+.messreihe { display: grid; grid-template-columns: 1fr auto; gap: .5rem; align-items: start; }
+.messreihe select { width: auto; }
+.v0 { margin: .5rem 0; }
+.v0-kennzahlen { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .5rem; margin-bottom: .4rem; }
+.v0-kennzahlen > div { background: var(--bg); border-radius: 8px; padding: .45rem .6rem; display: grid; }
+.kz-label { font-size: .8rem; color: var(--leise); }
+.kz-wert { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kz-neben { font-size: .8rem; color: var(--leise); font-variant-numeric: tabular-nums; }
+.diagramm { display: block; width: 100%; max-width: 640px; height: auto; margin: .5rem 0; }
+.diagramm text { font: 11px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; fill: var(--leise); font-variant-numeric: tabular-nums; }
+.diagramm .beschriftung { fill: var(--text); font-weight: 600; }
+.diagramm .einheit { font-size: 10px; }
+.legende { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: 0; margin: 0 0 .25rem; font-size: .9rem; }
+.legende .punkt { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .35rem; vertical-align: baseline; }
+.tabelle { border-collapse: collapse; width: 100%; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.tabelle th, .tabelle td { text-align: right; padding: .3rem .5rem; border-bottom: 1px solid var(--rand); }
+.tabelle th:first-child, .tabelle td:first-child { text-align: left; }
+.tabelle th { color: var(--leise); font-weight: 600; }
+.tabelle-rahmen { overflow-x: auto; }
+.tabelle .gruppe-zeile th { text-align: left; color: var(--text); padding-top: .6rem; font-weight: 600; }
+.tabelle .punkt { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .35rem; }

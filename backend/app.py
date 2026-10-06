@@ -31,6 +31,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 import auth
 import backup
+import ballistik
+import charts
 import checks
 import config
 import labels
@@ -38,7 +40,7 @@ import storage
 from forms import LABORIERUNG_FELDER, LOS_FELDER, TESTSERIE_FELDER, gruppiert, parse_form
 from models import STATUS, Foto, Laborierung, Los, Testserie
 from storage import Session
-from units import fmt_date, fmt_decimal
+from units import fmt_date, fmt_decimal, fmt_zahl
 
 FRONTEND = config.BASE_DIR / "frontend"
 FOTO_ENDUNGEN = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
@@ -84,7 +86,12 @@ def create_app(overrides=None):
 
     app.jinja_env.filters["dez"] = fmt_decimal
     app.jinja_env.filters["datum"] = fmt_date
-    app.jinja_env.globals.update(STATUS=STATUS, hinweise=checks.hinweise, app_version=config.APP_VERSION)
+    app.jinja_env.globals.update(
+        STATUS=STATUS, hinweise=checks.hinweise, app_version=config.APP_VERSION,
+        auswerten=ballistik.auswerten, fps=ballistik.fps, zahl=fmt_zahl,
+        werte_ms=lambda serie: ballistik.aus_text(serie.v_einzelwerte),
+        schuss_diagramm=charts.schuss_diagramm,
+    )
 
     @app.teardown_appcontext
     def remove_session(exc=None):
@@ -119,6 +126,40 @@ def _lokal_weiterleiten(url):
     if url.startswith("/") and not teile.netloc and not teile.scheme:
         return redirect(url)
     return redirect(url_for("index"))
+
+
+def _v0_vergleich(lab, nachfolger):
+    """Ø v0 aller Testserien der Laborierung und ihrer direkten Nachbarn
+    (Vorgänger-Kette + Nachfolger), höchstens drei Laborierungen gleichzeitig."""
+    vorfahren, v = [], lab.vorgaenger
+    while v is not None and len(vorfahren) < 2:
+        vorfahren.insert(0, v)
+        v = v.vorgaenger
+    kette = vorfahren + [lab] + sorted(nachfolger, key=lambda n: n.id)
+    i = kette.index(lab)
+    labs = kette[max(0, min(i - 1, len(kette) - 3)):][:3]
+
+    eintraege, tabelle = [], []
+    for gruppe, lab_g in enumerate(labs):
+        zeilen = []
+        for t in sorted(lab_g.testserien, key=lambda t: (t.datum, t.id)):
+            a = ballistik.auswerten(t)
+            if a is None:
+                continue
+            s = a.stat
+            eintraege.append({
+                "label": t.datum.strftime("%d.%m."), "gruppe": gruppe, "mittel": s.mittel, "sd": s.sd,
+                "tipp": f"{lab_g.name} – {fmt_date(t.datum)}: Ø {fmt_zahl(s.mittel)} m/s "
+                        f"({fmt_zahl(ballistik.fps(s.mittel), 0)} fps), n={s.n}"
+                        + (f", SD {fmt_zahl(s.sd)}" if s.sd is not None else ""),
+            })
+            zeilen.append({"datum": fmt_date(t.datum), "n": s.n, "mittel": fmt_zahl(s.mittel),
+                           "fps": fmt_zahl(ballistik.fps(s.mittel), 0), "sd": fmt_zahl(s.sd)})
+        if zeilen:
+            tabelle.append({"lab": lab_g.name, "farbe": charts.SERIEN_FARBEN[gruppe], "zeilen": zeilen})
+    if len(eintraege) < 2:
+        return None
+    return {"svg": charts.vergleich_diagramm(eintraege), "gruppen": tabelle}
 
 
 def _get_or_404(model, obj_id):
@@ -242,6 +283,7 @@ def register_routes(app, limiter):  # noqa: C901 – bewusst alle Routen an eine
     def laborierung(lab_id):
         lab = _get_or_404(Laborierung, lab_id)
         aenderungen = checks.unterschiede(lab.vorgaenger, lab) if lab.vorgaenger else []
+        nachfolger = Session.query(Laborierung).filter_by(vorgaenger_id=lab.id).all()
         heute = date.today()
         neue_serie = Testserie(datum=heute)
         if lab.vorgaenger and not lab.testserien:
@@ -254,7 +296,7 @@ def register_routes(app, limiter):  # noqa: C901 – bewusst alle Routen an eine
             "laborierung_detail.html", lab=lab, gruppen=gruppiert(LABORIERUNG_FELDER),
             aenderungen=aenderungen, neue_serie=neue_serie, test_felder=TESTSERIE_FELDER,
             heute=heute, waffen=storage.distinct_werte(Testserie.waffe),
-            nachfolger=Session.query(Laborierung).filter_by(vorgaenger_id=lab.id).all(),
+            nachfolger=nachfolger, vergleich=_v0_vergleich(lab, nachfolger),
         )
 
     @app.route("/laborierung/<int:lab_id>/bearbeiten", methods=["GET", "POST"])

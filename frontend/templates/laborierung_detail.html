@@ -69,10 +69,12 @@
       {% elif t.schlitten_schliesst is false %}<span class="tag tag-fehler">Schlitten schließt nicht</span>{% endif %}
     </div>
     <dl class="daten kompakt">
-      {% for f in test_felder if f.name not in ('datum', 'waffe', 'schlitten_schliesst') and t[f.name] not in (none, '') %}
+      {% for f in test_felder if f.name not in ('datum', 'waffe', 'schlitten_schliesst', 'v_einzelwerte', 'geschwindigkeit_ms') and t[f.name] not in (none, '') %}
         <dt>{{ f.label }}</dt><dd class="umbruch">{{ f.anzeige(t[f.name]) }}</dd>
       {% endfor %}
     </dl>
+    {% set a = auswerten(t) %}
+    {% if a %}{% include "_v0_auswertung.html" %}{% endif %}
     {% if t.fotos %}
     <div class="fotos">
       {% for foto in t.fotos %}<a href="{{ url_for('foto', pfad=foto.pfad) }}" target="_blank"><img src="{{ url_for('foto', pfad=foto.pfad) }}" alt="Foto {{ loop.index }}" loading="lazy"></a>{% endfor %}
@@ -82,6 +84,35 @@
   </article>
   {% endfor %}
 </section>
+
+{% if vergleich %}
+<section class="karte" id="geschwindigkeit">
+  <h2>Geschwindigkeit im Vergleich</h2>
+  {% if vergleich.gruppen|length > 1 %}
+  <ul class="legende">
+    {% for g in vergleich.gruppen %}<li><span class="punkt" style="background: {{ g.farbe }}"></span>{{ g.lab }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {{ vergleich.svg }}
+  <p class="hilfe">Punkt = Ø v0 der Testserie, Balken = ±1 Standardabweichung.</p>
+  <details class="mehr">
+    <summary>Werte als Tabelle</summary>
+    <div class="tabelle-rahmen">
+    <table class="tabelle">
+      <thead><tr><th>Datum</th><th>n</th><th>Ø m/s</th><th>Ø fps</th><th>SD</th></tr></thead>
+      {% for g in vergleich.gruppen %}
+      <tbody>
+        <tr class="gruppe-zeile"><th colspan="5"><span class="punkt" style="background: {{ g.farbe }}"></span>{{ g.lab }}</th></tr>
+        {% for z in g.zeilen %}
+        <tr><td>{{ z.datum }}</td><td>{{ z.n }}</td><td>{{ z.mittel }}</td><td>{{ z.fps }}</td><td>{{ z.sd }}</td></tr>
+        {% endfor %}
+      </tbody>
+      {% endfor %}
+    </table>
+    </div>
+  </details>
+</section>
+{% endif %}
 
 <section class="karte" id="lose">
   <h2>Lose ({{ lab.lose|length }})</h2>

@@ -140,3 +140,45 @@ def test_export_import_csv_roundtrip(eingeloggt, session):
 def test_manifest_oeffentlich(client):
     resp = client.get("/manifest.webmanifest")
     assert resp.status_code == 200 and resp.json["short_name"] == "Ladedaten"
+
+
+def test_testserie_mit_geschwindigkeiten(eingeloggt, session):
+    lab_id = _anlegen(eingeloggt)
+    resp = eingeloggt.post(f"/laborierung/{lab_id}/testserie", data={
+        "datum": "2026-10-06", "v_einzelwerte": "820 830 825 815", "v_einzelwerte_einheit": "fps",
+    })
+    assert resp.status_code == 302
+    serie = session.query(Testserie).one()
+    assert serie.v_einzelwerte == "249.9 253 251.5 248.4"
+    assert serie.geschwindigkeit_ms == Decimal("250.7")  # Mittelwert übernommen
+    html = eingeloggt.get(f"/laborierung/{lab_id}").get_data(as_text=True)
+    assert "Ø v0" in html and "250,7 m/s" in html and "Power Factor" in html
+    assert 'class="diagramm"' in html and "Einzelwerte als Tabelle" in html
+    assert "Geschwindigkeit im Vergleich" not in html  # erst ab zwei Testserien
+
+
+def test_geschwindigkeit_ungueltig(eingeloggt, session):
+    lab_id = _anlegen(eingeloggt)
+    eingeloggt.post(f"/laborierung/{lab_id}/testserie", data={"datum": "2026-10-06", "v_einzelwerte": "250 viel"})
+    assert session.query(Testserie).count() == 0
+
+
+def test_vergleich_ueber_vorserie(eingeloggt, session):
+    lab_id = _anlegen(eingeloggt, l6_mm="30,5")
+    eingeloggt.post(f"/laborierung/{lab_id}/testserie", data={"datum": "2026-10-01", "v_einzelwerte": "245 247 246"})
+    neu_id = int(eingeloggt.post(f"/laborierung/{lab_id}/duplizieren").headers["Location"].split("/")[-2])
+    eingeloggt.post(f"/laborierung/{neu_id}/testserie", data={"datum": "2026-10-06", "v_einzelwerte": "251 253"})
+    html = eingeloggt.get(f"/laborierung/{neu_id}").get_data(as_text=True)
+    assert "Geschwindigkeit im Vergleich" in html
+    assert 'class="legende"' in html and "Serie 2 (Kopie)" in html
+    assert html.count('class="gruppe-zeile"') == 2  # Tabelle: Vorserie + aktuelle Serie
+
+
+def test_bearbeiten_behaelt_einheit_bei_fehler(eingeloggt, session):
+    lab_id = _anlegen(eingeloggt)
+    eingeloggt.post(f"/laborierung/{lab_id}/testserie", data={"datum": "2026-10-06"})
+    serie = session.query(Testserie).one()
+    resp = eingeloggt.post(f"/testserie/{serie.id}/bearbeiten", data={
+        "datum": "2026-10-06", "v_einzelwerte": "820 x", "v_einzelwerte_einheit": "fps"})
+    assert resp.status_code == 422
+    assert '<option value="fps" selected>' in resp.get_data(as_text=True)

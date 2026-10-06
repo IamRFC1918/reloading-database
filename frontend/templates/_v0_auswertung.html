@@ -1,0 +1,28 @@
+{# Auswertung der Geschwindigkeit einer Testserie; erwartet `a` (ballistik.Auswertung) und `t` #}
+{% set s = a.stat %}
+<div class="v0">
+  <div class="v0-kennzahlen">
+    <div><span class="kz-label">Ø v0</span><span class="kz-wert">{{ zahl(s.mittel) }} m/s</span><span class="kz-neben">{{ zahl(fps(s.mittel), 0) }} fps</span></div>
+    {% if s.sd is not none %}
+    <div><span class="kz-label">SD</span><span class="kz-wert">{{ zahl(s.sd) }} m/s</span><span class="kz-neben">CV {{ zahl(s.cv, 2) }} %</span></div>
+    <div><span class="kz-label">ES</span><span class="kz-wert">{{ zahl(s.es) }} m/s</span><span class="kz-neben">{{ zahl(s.minimum) }} – {{ zahl(s.maximum) }}</span></div>
+    {% endif %}
+    {% if a.energie_j %}<div><span class="kz-label">E0</span><span class="kz-wert">{{ zahl(a.energie_j, 0) }} J</span><span class="kz-neben">aus Ø v0</span></div>{% endif %}
+    {% if a.power_factor %}<div><span class="kz-label">Power Factor</span><span class="kz-wert">{{ zahl(a.power_factor) }}</span><span class="kz-neben">gr × fps / 1000</span></div>{% endif %}
+  </div>
+  <p class="hilfe">{% if a.einzelwerte %}{{ s.n }} Schuss gemessen{% else %}nur Mittelwert eingetragen{% endif %}{% if not a.energie_j %} · E0 und Power Factor brauchen das Geschossgewicht{% endif %}</p>
+  {% if a.einzelwerte and s.n >= 2 %}
+    {{ schuss_diagramm(werte_ms(t)) }}
+    <details class="mehr">
+      <summary>Einzelwerte als Tabelle</summary>
+      <table class="tabelle">
+        <thead><tr><th>Schuss</th><th>m/s</th><th>fps</th><th>Abw. vom Ø</th></tr></thead>
+        <tbody>
+        {% for v in werte_ms(t) %}
+          <tr><td>{{ loop.index }}</td><td>{{ zahl(v) }}</td><td>{{ zahl(fps(v|float), 0) }}</td><td>{{ zahl(v|float - s.mittel, 1, vorzeichen=true) }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  {% endif %}
+</div>

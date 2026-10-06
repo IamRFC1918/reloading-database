@@ -6,6 +6,7 @@ Python-Werte. CSRF kommt global von Flask-WTF (CSRFProtect).
 """
 from dataclasses import dataclass
 
+import ballistik
 from models import STATUS
 from units import fmt_date, fmt_decimal, parse_date, parse_decimal, parse_int
 
@@ -21,7 +22,7 @@ class Feld:
     auswahl: tuple = ()  # (wert, text) für select
     hilfe: str = ""
 
-    def parse(self, raw):
+    def parse(self, raw, einheit="ms"):
         if self.typ == "dezimal":
             return parse_decimal(raw)
         if self.typ == "int":
@@ -33,6 +34,8 @@ class Feld:
             return parse_date(raw)
         if self.typ == "janein":
             return {"ja": True, "nein": False}.get(str(raw or "").strip().lower())
+        if self.typ == "messreihe":
+            return ballistik.als_text(ballistik.parse_messreihe(raw, einheit))
         value = (raw or "").strip() if isinstance(raw, str) else raw
         if self.typ == "select" and value and value not in dict(self.auswahl):
             raise ValueError("ungültige Auswahl")
@@ -50,6 +53,8 @@ class Feld:
             text = "ja" if value else "nein"
         elif self.typ == "select":
             text = dict(self.auswahl).get(value, value)
+        elif self.typ == "messreihe":
+            text = " · ".join(fmt_decimal(v) for v in ballistik.aus_text(value))
         else:
             text = str(value)
         return f"{text} {self.einheit}".strip()
@@ -64,6 +69,8 @@ class Feld:
             return value.isoformat()
         if self.typ == "janein":
             return "ja" if value else "nein"
+        if self.typ == "messreihe":
+            return " ".join(fmt_decimal(v) for v in ballistik.aus_text(value))
         return str(value)
 
 
@@ -104,7 +111,10 @@ TESTSERIE_FELDER = [
     Feld("entfernung_m", "Entfernung", "int", einheit="m"),
     Feld("rueckstoss", "Rückstoß-Eindruck", "select",
          auswahl=(("weich", "weich"), ("mittel", "mittel"), ("hart", "hart"))),
-    Feld("geschwindigkeit_ms", "Geschwindigkeit", "dezimal", einheit="m/s"),
+    Feld("v_einzelwerte", "Geschwindigkeiten (Einzelschüsse)", "messreihe",
+         hilfe="Werte vom Messgerät durch Leerzeichen oder neue Zeile trennen, z. B. 251,3 249 253,8"),
+    Feld("geschwindigkeit_ms", "Ø Geschwindigkeit", "dezimal", einheit="m/s",
+         hilfe="Nur ohne Einzelwerte nötig – sonst wird der Mittelwert berechnet"),
     Feld("geaenderte_parameter", "Geänderte Parameter ggü. Vorserie", "textarea"),
     Feld("freitext", "Bemerkungen", "textarea"),
 ]
@@ -131,7 +141,7 @@ def parse_form(felder, form):
     werte, fehler = {}, {}
     for feld in felder:
         try:
-            value = feld.parse(form.get(feld.name))
+            value = feld.parse(form.get(feld.name), form.get(f"{feld.name}_einheit", "ms"))
         except ValueError as exc:
             fehler[feld.name] = str(exc)
             continue
@@ -139,4 +149,8 @@ def parse_form(felder, form):
             fehler[feld.name] = "Pflichtfeld"
             continue
         werte[feld.name] = value
+    # Mittelwert aus den Einzelschüssen übernimmt das Ø-Feld
+    if werte.get("v_einzelwerte"):
+        stat = ballistik.statistik(ballistik.aus_text(werte["v_einzelwerte"]))
+        werte["geschwindigkeit_ms"] = parse_decimal(f"{stat.mittel:.1f}")
     return werte, fehler

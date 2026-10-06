@@ -1,15 +1,16 @@
 {# Felder einer Testserie; `kurz` = Schnellerfassung (wenige Felder offen, Rest eingeklappt) #}
 {% from "macros.html" import feld, wert_von %}
-{% set schnell = ['datum', 'waffe', 'federstaerke', 'stueckzahl', 'schlitten_schliesst', 'anzahl_probleme', 'ladehemmungen', 'freitext'] %}
+{% set schnell = ['datum', 'waffe', 'federstaerke', 'stueckzahl', 'schlitten_schliesst', 'anzahl_probleme', 'ladehemmungen', 'v_einzelwerte', 'freitext'] %}
+{% set einheit = (werte or {}).get('v_einzelwerte_einheit', 'ms') %}
 {% set vorschlaege = {'waffe': waffen} %}
 <div class="raster">
 {% for f in test_felder if not kurz or f.name in schnell %}
-  {{ feld(f, wert_von(f, serie, werte), fehler, vorschlaege) }}
+  {{ feld(f, wert_von(f, serie, werte), fehler, vorschlaege, einheit) }}
 {% endfor %}
 </div>
 {% if kurz %}
 <details class="mehr">
-  <summary>Weitere Felder (Streukreis, Rückstoß, v0, geänderte Parameter)</summary>
+  <summary>Weitere Felder (Streukreis, Rückstoß, geänderte Parameter)</summary>
   <div class="raster">
   {% for f in test_felder if f.name not in schnell %}
     {{ feld(f, wert_von(f, serie, werte), fehler, vorschlaege) }}

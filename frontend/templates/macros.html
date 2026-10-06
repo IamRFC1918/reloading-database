@@ -1,5 +1,5 @@
 {# Generisches Formularfeld aus forms.Feld. `wert` ist bereits ein String fürs value-Attribut. #}
-{% macro feld(f, wert, fehler={}, vorschlaege={}) %}
+{% macro feld(f, wert, fehler={}, vorschlaege={}, einheit='ms') %}
 <div class="feld feld-{{ f.typ }}{% if fehler.get(f.name) %} hat-fehler{% endif %}">
   {% if f.typ == 'janein' %}
   <fieldset class="janein">
@@ -12,6 +12,14 @@
   <label for="f-{{ f.name }}">{{ f.label }}{% if f.einheit %} <span class="einheit">({{ f.einheit }})</span>{% endif %}{% if f.pflicht %} *{% endif %}</label>
   {% if f.typ == 'textarea' %}
     <textarea id="f-{{ f.name }}" name="{{ f.name }}" rows="3">{{ wert }}</textarea>
+  {% elif f.typ == 'messreihe' %}
+    <div class="messreihe">
+      <textarea id="f-{{ f.name }}" name="{{ f.name }}" rows="2" autocomplete="off" spellcheck="false"
+                placeholder="251,3 249 253,8 …">{{ wert }}</textarea>
+      <select name="{{ f.name }}_einheit" aria-label="Einheit der Geschwindigkeiten">
+        {% for w, t in [('ms', 'm/s'), ('fps', 'fps')] %}<option value="{{ w }}" {% if w == einheit %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+    </div>
   {% elif f.typ == 'select' %}
     <select id="f-{{ f.name }}" name="{{ f.name }}">
       {% if not f.pflicht and f.name != 'status' %}<option value="">–</option>{% endif %}

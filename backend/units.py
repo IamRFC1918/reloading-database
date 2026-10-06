@@ -60,5 +60,13 @@ def fmt_decimal(value):
     return format(d, "f").replace(".", ",")
 
 
+def fmt_zahl(value, stellen=1, vorzeichen=False):
+    """Gerundete Zahl mit Dezimalkomma: fmt_zahl(251.333) -> '251,3'; None -> ''."""
+    if value is None:
+        return ""
+    text = f"{float(value):{'+' if vorzeichen else ''}.{stellen}f}".replace(".", ",")
+    return text.replace("-", "−")
+
+
 def fmt_date(value):
     return value.strftime("%d.%m.%Y") if value else ""

@@ -15,6 +15,8 @@ backend/
   storage.py    Engine/scoped Session, Filter, Duplizieren, Los-Nr.-Vergabe
   forms.py      Felddefinitionen (eine Liste pro Entität) + parse_form()
   checks.py     Warnungen (Ladung > Max-Ladung, fehlende Quelle) und Vorserien-Diff
+  ballistik.py  Auswertung gemessener v0: Statistik, E0, Power Factor (keine Vorhersage!)
+  charts.py     Inline-SVG-Diagramme (Schüsse je Testserie, Serienvergleich)
   units.py      Dezimalkomma parsen/formatieren, Datum
   labels.py     Etikettdaten, QR (qrcode), PDF (reportlab), A4-Bogen-Raster
   backup.py     Export/Import JSON und CSV-ZIP
@@ -59,6 +61,10 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
   „Änderungen ggü. Vorserie“.
 - `testserie` (n:1, CASCADE): Erfahrung vom Stand. `schlitten_schliesst` ist
   ein nullable Bool (ja/nein/unbekannt).
+  `v_einzelwerte` (Text) hält die Chronograph-Einzelschüsse in m/s,
+  Leerzeichen-getrennt mit Punkt ("251.3 249"). Eingabe auch in fps, wird beim
+  Speichern umgerechnet. `geschwindigkeit_ms` ist dann der berechnete
+  Mittelwert, ohne Einzelwerte ein manuell eingetragener.
 - `foto` (n:1 zur Testserie, CASCADE): nur der Pfad relativ zu `UPLOAD_DIR`,
   die Datei liegt auf dem PVC.
 - `los` (n:1, RESTRICT): `los_nr` ist eindeutig, Format
@@ -74,6 +80,16 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
 - **Keine Ladedaten-Vorgaben.** Die Warnung vergleicht nur Ladung mit der
   selbst eingetragenen Max-Ladung der Quelle (`checks.py`). Das Tool soll keine
   „empfohlenen“ Werte, Tabellen oder Hochrechnungen bekommen.
+- **Ballistik nur auf Messwerten** (`ballistik.py`): v0-Statistik (Ø, Min/Max,
+  ES, Stichproben-SD, CV), E0 = m·v²/2 und Power Factor = gr × fps / 1000.
+  Bewusst KEINE vorhersagende Innenballistik (Gasdruck, v0 aus Ladung), weil
+  ein einfaches Modell beim Druck gefährlich ungenau wäre und es eine
+  Ladedaten-Vorgabe wäre.
+- **Diagramme als serverseitiges Inline-SVG** (`charts.py`): keine JS-Bibliothek,
+  CSP-tauglich, Tooltips per `<title>`, die Werte zusätzlich als Tabelle.
+  Farben aus der validierten dataviz-Referenzpalette (Slots 1–3 blau/orange/aqua,
+  auch für Punktdiagramme mit allen Paaren farbfehlsicht-tauglich). Der Vergleich
+  zeigt deshalb höchstens drei Laborierungen (Vorgänger, aktuelle, Nachfolger).
 - **DB über mariadb-operator** (`database.mode: operator`, Standard): Das Chart
   erzeugt `Database`/`User`/`Grant` (+ optional eigene `MariaDB`, `Backup`) statt
   eines eigenen StatefulSets. `internal` (StatefulSet) und `external` bleiben für
@@ -127,8 +143,9 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
 
 ## Verifiziert
 
-- pytest (54 Tests: Modelle, Warnlogik, Login/CSRF/Rate-Limit, Routen,
-  Etikett/PDF, Backup-Roundtrip) gegen SQLite.
+- pytest (76 Tests: Modelle, Warnlogik, Login/CSRF/Rate-Limit, Open Redirect,
+  Routen, Etikett/PDF, Backup-Roundtrip, Ballistik/Diagramme) gegen SQLite.
+- Diagramme per headless Chrome bei 360 px Breite angesehen.
 - Mit Podman gegen MariaDB 11 und 11.4: Migration idempotent, utf8mb4 inkl.
   Emoji, App mit `--read-only --user 10001 --cap-drop ALL`, MariaDB mit
   `--read-only --user 999` und tmpfs für `/run/mysqld` und `/tmp`, Backup-Skript
