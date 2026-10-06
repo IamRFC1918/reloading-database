@@ -1,0 +1,18 @@
+# Bewusst akzeptierte Trivy-Hinweise (Misconfiguration). Jede Zeile mit Begründung.
+# Gilt für den Repo-Scan in .github/workflows/ci.yml (Dockerfile + Helm-Chart).
+
+# CPU-Limits: bewusst nur Requests + Memory-Limits. CPU-Limits führen zu
+# Throttling ohne Nutzen für eine einzelne, kleine App.
+AVD-KSV-0011
+
+# "default"-Namespace: Artefakt des Scans (Chart wird ohne -n gerendert).
+# Installiert wird immer in einen eigenen Namespace.
+AVD-KSV-0110
+
+# "Untrusted registry": Trivy kennt die Registry-Policy des Clusters nicht.
+# Registries sind über image.registry/global.imageRegistry konfigurierbar.
+AVD-KSV-0125
+
+# Fehlalarm: Trivy hält den ConfigMap-Key DB_WAIT_SECONDS für sensibel.
+# Passwörter stehen ausschließlich in Secrets.
+AVD-KSV-01010

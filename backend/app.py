@@ -8,7 +8,7 @@ import secrets
 import uuid
 from datetime import date
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlparse
 
 from flask import (
     Flask,
@@ -111,14 +111,14 @@ def create_app(overrides=None):
     return app
 
 
-def _lokales_ziel(url):
-    """Nur Pfade dieser App als Weiterleitungsziel zulassen (kein Open Redirect).
-    Backslashes zählen mit, weil Browser "/\\host" wie "//host" behandeln."""
-    url = (url or "").replace("\\", "/")
-    teile = urlsplit(url)
-    if url.startswith("/") and not url.startswith("//") and not teile.scheme and not teile.netloc:
-        return url
-    return None
+def _lokal_weiterleiten(url):
+    """Weiterleitung nur auf Pfade dieser App (kein Open Redirect), sonst zur Startseite.
+    Backslashes entfernen, weil Browser "/\\host" wie "//host" behandeln."""
+    url = (url or "").replace("\\", "")
+    teile = urlparse(url)
+    if url.startswith("/") and not teile.netloc and not teile.scheme:
+        return redirect(url)
+    return redirect(url_for("index"))
 
 
 def _get_or_404(model, obj_id):
@@ -181,7 +181,7 @@ def register_routes(app, limiter):  # noqa: C901 – bewusst alle Routen an eine
             if user:
                 login_user(user, remember=False)
                 session.permanent = True
-                return redirect(_lokales_ziel(request.args.get("next")) or url_for("index"))
+                return _lokal_weiterleiten(request.args.get("next"))
             flash("Benutzername oder Passwort falsch.", "fehler")
         return render_template("login.html")
 
@@ -470,8 +470,7 @@ def register_routes(app, limiter):  # noqa: C901 – bewusst alle Routen an eine
     def zu_gross(_):
         flash(f"Datei zu groß (max. {config.MAX_UPLOAD_MB} MB).", "fehler")
         # Nur den Pfad des Referers verwenden, nie einen fremden Host
-        ziel = _lokales_ziel(urlsplit(request.referrer or "").path)
-        return redirect(ziel or url_for("index"))
+        return _lokal_weiterleiten(urlparse(request.referrer or "").path)
 
 
 if __name__ == "__main__":

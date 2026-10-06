@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlparse
 
 import pytest
 
@@ -88,7 +89,10 @@ def test_csrf_wird_erzwungen(app):
                                   "https://boese.example/", "javascript:alert(1)", "boese"])
 def test_login_next_nur_lokale_pfade(client, ziel):
     resp = client.post("/login", query_string={"next": ziel}, data={"name": "schuetze", "passwort": "geheim1234"})
-    assert resp.headers["Location"] == "/"
+    ort = resp.headers["Location"]
+    # Weiterleitung bleibt auf der eigenen App: relativer Pfad, kein Host, kein Schema
+    assert ort.startswith("/") and not ort.startswith("//") and "\\" not in ort
+    assert urlparse(ort).netloc == "" and urlparse(ort).scheme == ""
 
 
 def test_login_next_lokaler_pfad(client):

@@ -43,6 +43,10 @@ WORKDIR /app/backend
 EXPOSE 8000
 VOLUME ["/data"]
 
+# Für docker/podman (Kubernetes nutzt die Probes aus dem Chart). Ohne curl im Image.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4)"]
+
 # Ein Worker mit Threads: Rate-Limiter speichert im Prozess-Speicher (ein Replika).
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "4", \
      "--timeout", "60", "--worker-tmp-dir", "/tmp", "--access-logfile", "-", "app:create_app()"]
