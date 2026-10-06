@@ -35,6 +35,7 @@ import ballistik
 import charts
 import checks
 import config
+import grt
 import labels
 import storage
 from forms import LABORIERUNG_FELDER, LOS_FELDER, TESTSERIE_FELDER, gruppiert, parse_form
@@ -90,7 +91,7 @@ def create_app(overrides=None):
         STATUS=STATUS, hinweise=checks.hinweise, app_version=config.APP_VERSION,
         auswerten=ballistik.auswerten, fps=ballistik.fps, zahl=fmt_zahl,
         werte_ms=lambda serie: ballistik.aus_text(serie.v_einzelwerte),
-        schuss_diagramm=charts.schuss_diagramm,
+        schuss_diagramm=charts.schuss_diagramm, grt_abweichung=grt.abweichung_v0,
     )
 
     @app.teardown_appcontext
@@ -139,9 +140,13 @@ def _v0_vergleich(lab, nachfolger):
     i = kette.index(lab)
     labs = kette[max(0, min(i - 1, len(kette) - 3)):][:3]
 
-    eintraege, tabelle = [], []
+    eintraege, tabelle, referenzen = [], [], []
     for gruppe, lab_g in enumerate(labs):
         zeilen = []
+        rechnung = grt.aus_json(lab_g.grt_rechnung)
+        if rechnung and rechnung.v0_ms is not None:
+            referenzen.append({"gruppe": gruppe, "v0": rechnung.v0_ms,
+                               "tipp": f"GRT-Rechnung {lab_g.name}: {fmt_zahl(rechnung.v0_ms)} m/s"})
         for t in sorted(lab_g.testserien, key=lambda t: (t.datum, t.id)):
             a = ballistik.auswerten(t)
             if a is None:
@@ -155,11 +160,13 @@ def _v0_vergleich(lab, nachfolger):
             })
             zeilen.append({"datum": fmt_date(t.datum), "n": s.n, "mittel": fmt_zahl(s.mittel),
                            "fps": fmt_zahl(ballistik.fps(s.mittel), 0), "sd": fmt_zahl(s.sd)})
-        if zeilen:
-            tabelle.append({"lab": lab_g.name, "farbe": charts.SERIEN_FARBEN[gruppe], "zeilen": zeilen})
-    if len(eintraege) < 2:
+        if zeilen or rechnung:
+            tabelle.append({"lab": lab_g.name, "farbe": charts.SERIEN_FARBEN[gruppe], "zeilen": zeilen,
+                            "grt_v0": fmt_zahl(rechnung.v0_ms) if rechnung else ""})
+    # Ab zwei Messungen – oder einer Messung plus GRT-Rechnung zum Vergleich
+    if len(eintraege) < 2 and not (eintraege and referenzen):
         return None
-    return {"svg": charts.vergleich_diagramm(eintraege), "gruppen": tabelle}
+    return {"svg": charts.vergleich_diagramm(eintraege, referenzen), "gruppen": tabelle, "mit_grt": bool(referenzen)}
 
 
 def _get_or_404(model, obj_id):
@@ -284,6 +291,7 @@ def register_routes(app, limiter):  # noqa: C901 – bewusst alle Routen an eine
         lab = _get_or_404(Laborierung, lab_id)
         aenderungen = checks.unterschiede(lab.vorgaenger, lab) if lab.vorgaenger else []
         nachfolger = Session.query(Laborierung).filter_by(vorgaenger_id=lab.id).all()
+        rechnung = grt.aus_json(lab.grt_rechnung)
         heute = date.today()
         neue_serie = Testserie(datum=heute)
         if lab.vorgaenger and not lab.testserien:
@@ -297,6 +305,7 @@ def register_routes(app, limiter):  # noqa: C901 – bewusst alle Routen an eine
             aenderungen=aenderungen, neue_serie=neue_serie, test_felder=TESTSERIE_FELDER,
             heute=heute, waffen=storage.distinct_werte(Testserie.waffe),
             nachfolger=nachfolger, vergleich=_v0_vergleich(lab, nachfolger),
+            grt=rechnung, grt_abweichungen=grt.abweichungen(rechnung, lab) if rechnung else [],
         )
 
     @app.route("/laborierung/<int:lab_id>/bearbeiten", methods=["GET", "POST"])
@@ -312,6 +321,35 @@ def register_routes(app, limiter):  # noqa: C901 – bewusst alle Routen an eine
         Session.commit()
         flash("Kopie angelegt – jetzt die geänderten Parameter eintragen.", "ok")
         return redirect(url_for("laborierung_bearbeiten", lab_id=kopie.id))
+
+    @app.post("/laborierung/<int:lab_id>/grt")
+    def grt_import(lab_id):
+        lab = _get_or_404(Laborierung, lab_id)
+        ziel = url_for("laborierung", lab_id=lab.id) + "#grt"
+        datei = request.files.get("datei")
+        if not datei or not datei.filename:
+            flash("Keine Datei ausgewählt.", "fehler")
+            return redirect(ziel)
+        try:
+            rechnung = grt.parse(datei.read(), datei.filename)
+        except ValueError as exc:
+            flash(f"GRT-Import fehlgeschlagen: {exc}", "fehler")
+            return redirect(ziel)
+        ersetzt = bool(lab.grt_rechnung)
+        lab.grt_rechnung = grt.als_json(rechnung)
+        Session.commit()
+        flash("GRT-Rechnung ersetzt." if ersetzt else "GRT-Rechnung importiert.", "ok")
+        for text in grt.abweichungen(rechnung, lab) + rechnung.meldungen:
+            flash(text, "warnung")
+        return redirect(ziel)
+
+    @app.post("/laborierung/<int:lab_id>/grt/loeschen")
+    def grt_loeschen(lab_id):
+        lab = _get_or_404(Laborierung, lab_id)
+        lab.grt_rechnung = None
+        Session.commit()
+        flash("GRT-Rechnung entfernt.", "ok")
+        return redirect(url_for("laborierung", lab_id=lab.id) + "#grt")
 
     @app.post("/laborierung/<int:lab_id>/loeschen")
     def laborierung_loeschen(lab_id):

@@ -49,6 +49,53 @@
   {% endfor %}
 </section>
 
+<section class="karte" id="grt">
+  <h2>Rechnung (Gordons Reloading Tool)</h2>
+  {% if grt %}
+  <p class="hilfe">Rechenwerte aus GRT – <strong>nicht gemessen</strong> und keine Freigabe der Ladung.
+    Importiert {{ grt.importiert_am[:10] }}{% if grt.dateiname %} aus „{{ grt.dateiname }}“{% endif %}.</p>
+  {% for text in grt_abweichungen %}<div class="hinweis hinweis-warnung">⚠ Abweichung zur Laborierung – {{ text }}</div>{% endfor %}
+  {% for text in grt.meldungen %}<div class="hinweis hinweis-info">{{ text }}</div>{% endfor %}
+  <div class="v0-kennzahlen">
+    {% if grt.v0_ms is not none %}<div><span class="kz-label">v0 (GRT)</span><span class="kz-wert">{{ zahl(grt.v0_ms) }} m/s</span><span class="kz-neben">{{ zahl(fps(grt.v0_ms), 0) }} fps</span></div>{% endif %}
+    {% if grt.pmax_bar is not none %}<div><span class="kz-label">Pmax (GRT)</span><span class="kz-wert">{{ zahl(grt.pmax_bar, 0) }} bar</span><span class="kz-neben">{% if grt.pmax_zul_bar %}zulässig lt. Kaliberdaten {{ zahl(grt.pmax_zul_bar, 0) }} bar{% endif %}</span></div>{% endif %}
+    {% if grt.e0_j is not none %}<div><span class="kz-label">E0 (GRT)</span><span class="kz-wert">{{ zahl(grt.e0_j, 0) }} J</span></div>{% endif %}
+    {% if grt.fuellgrad_pct is not none %}<div><span class="kz-label">Füllgrad</span><span class="kz-wert">{{ zahl(grt.fuellgrad_pct) }} %</span>{% if grt.abbrand_pct is not none %}<span class="kz-neben">Abbrand {{ zahl(grt.abbrand_pct, 0) }} %</span>{% endif %}</div>{% endif %}
+  </div>
+  <dl class="daten kompakt">
+    {% for label, wert in [
+        ('Lauflänge', (zahl(grt.lauflaenge_mm) ~ ' mm (' ~ zahl(grt.lauflaenge_mm / 25.4, 2) ~ '″)') if grt.lauflaenge_mm is not none else ''),
+        ('Kaliber', grt.kaliber), ('Geschoss', grt.geschoss), ('Pulver', grt.pulver),
+        ('Ladung', (zahl(grt.ladung_gr, 2) ~ ' gr') if grt.ladung_gr is not none else ''),
+        ('L6 (OAL)', (zahl(grt.oal_mm, 2) ~ ' mm') if grt.oal_mm is not none else ''),
+        ('Hülsenlänge', (zahl(grt.huelsenlaenge_mm, 2) ~ ' mm') if grt.huelsenlaenge_mm is not none else ''),
+        ('Pulvertemperatur', (zahl(grt.pulvertemp_c, 0) ~ ' °C') if grt.pulvertemp_c is not none else ''),
+        ('Laufzeit', (zahl(grt.laufzeit_ms, 2) ~ ' ms') if grt.laufzeit_ms is not none else ''),
+        ('IPSC-Faktor (GRT)', zahl(grt.ipsc_factor, 0) if grt.ipsc_factor is not none else ''),
+      ] if wert %}
+      <dt>{{ label }}</dt><dd>{{ wert }}</dd>
+    {% endfor %}
+  </dl>
+  <p class="hilfe">Die Lauflänge in GRT muss zur Waffe passen – sonst ist die gerechnete v0 nicht vergleichbar.</p>
+  {% else %}
+  <p class="hilfe">Exportiere in GRT die aktive Ladung als JSON und importiere sie hier, um die gerechnete mit der gemessenen Geschwindigkeit zu vergleichen.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('grt_import', lab_id=lab.id) }}" enctype="multipart/form-data" class="formular"
+        {% if grt %}data-confirm="Vorhandene GRT-Rechnung ersetzen?"{% endif %}>
+    {{ csrf() }}
+    <div class="feld"><label for="grt-datei">GRT-Export (JSON, aktive Ladung)</label>
+      <input id="grt-datei" name="datei" type="file" accept=".json,application/json" required></div>
+    <div class="aktionen">
+      <button class="btn btn-primaer" type="submit">{{ 'Rechnung ersetzen' if grt else 'GRT-Rechnung importieren' }}</button>
+    </div>
+  </form>
+  {% if grt %}
+  <form method="post" action="{{ url_for('grt_loeschen', lab_id=lab.id) }}" data-confirm="GRT-Rechnung entfernen?">
+    {{ csrf() }}<button class="btn btn-gefahr btn-klein" type="submit">Rechnung entfernen</button>
+  </form>
+  {% endif %}
+</section>
+
 <section class="karte" id="erfassen">
   <h2>Erfahrung erfassen</h2>
   <form method="post" action="{{ url_for('testserie_neu', lab_id=lab.id) }}" enctype="multipart/form-data" class="formular schnell">
@@ -94,7 +141,7 @@
   </ul>
   {% endif %}
   {{ vergleich.svg }}
-  <p class="hilfe">Punkt = Ø v0 der Testserie, Balken = ±1 Standardabweichung.</p>
+  <p class="hilfe">Punkt = Ø v0 der Testserie, Balken = ±1 Standardabweichung{% if vergleich.mit_grt %}, gestrichelt = v0 laut GRT-Rechnung{% endif %}.</p>
   <details class="mehr">
     <summary>Werte als Tabelle</summary>
     <div class="tabelle-rahmen">
@@ -106,6 +153,7 @@
         {% for z in g.zeilen %}
         <tr><td>{{ z.datum }}</td><td>{{ z.n }}</td><td>{{ z.mittel }}</td><td>{{ z.fps }}</td><td>{{ z.sd }}</td></tr>
         {% endfor %}
+        {% if g.grt_v0 %}<tr class="grt-zeile"><td>GRT-Rechnung</td><td></td><td>{{ g.grt_v0 }}</td><td></td><td></td></tr>{% endif %}
       </tbody>
       {% endfor %}
     </table>

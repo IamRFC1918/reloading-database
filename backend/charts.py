@@ -95,19 +95,40 @@ def schuss_diagramm(werte_ms, titel="Geschwindigkeit je Schuss"):
     return Markup("".join(teile))
 
 
-def vergleich_diagramm(eintraege, titel="Mittlere Geschwindigkeit je Testserie"):
+def vergleich_diagramm(eintraege, referenzen=(), titel="Mittlere Geschwindigkeit je Testserie"):
     """Ø v0 je Testserie mit ±1 SD als Fehlerbalken, Farbe = Laborierung.
 
     eintraege: Liste von dicts mit label, gruppe (Index 0..2), mittel, sd (oder None), tipp.
+    referenzen: gerechnete v0 (GRT) als gestrichelte Linie je gruppe: dicts mit gruppe, v0, tipp.
     """
     eintraege = eintraege[-MAX_VERGLEICH:]
     if not eintraege:
         return Markup("")
-    lo = min(e["mittel"] - (e["sd"] or 0) for e in eintraege)
-    hi = max(e["mittel"] + (e["sd"] or 0) for e in eintraege)
+    lo = min([e["mittel"] - (e["sd"] or 0) for e in eintraege] + [r["v0"] for r in referenzen])
+    hi = max([e["mittel"] + (e["sd"] or 0) for e in eintraege] + [r["v0"] for r in referenzen])
     teile, y = _rahmen(titel, lo, hi)
     n = len(eintraege)
     breite = (B - RAND["l"] - RAND["r"]) / n
+
+    # Gerechnete v0 zuerst (unter den Messpunkten), über die Spalten der eigenen Laborierung
+    belegte_y = []
+    for r in referenzen:
+        spalten = [i for i, e in enumerate(eintraege) if e["gruppe"] == r["gruppe"]]
+        x1 = RAND["l"] + breite * (spalten[0] if spalten else 0)
+        x2 = RAND["l"] + breite * (spalten[-1] + 1 if spalten else n)
+        farbe = SERIEN_FARBEN[r["gruppe"] % len(SERIEN_FARBEN)]
+        ry = y(r["v0"])
+        teile.append(f'<g><title>{escape(r["tipp"])}</title>'
+                     f'<line x1="{x1:.1f}" x2="{x2:.1f}" y1="{ry:.1f}" y2="{ry:.1f}" stroke="{farbe}" '
+                     f'stroke-width="2" stroke-dasharray="5 4"/>'
+                     f'<line x1="{x1:.1f}" x2="{x2:.1f}" y1="{ry:.1f}" y2="{ry:.1f}" stroke="transparent" '
+                     f'stroke-width="14"/></g>')
+        # Direktes Label rechts, bei Überschneidung etwas versetzt
+        ly = ry + 4
+        while any(abs(ly - b) < 12 for b in belegte_y):
+            ly += 12
+        belegte_y.append(ly)
+        teile.append(f'<text x="{B - RAND["r"] + 4}" y="{ly:.1f}" class="beschriftung">GRT {_z(r["v0"])}</text>')
     for i, e in enumerate(eintraege):
         cx = RAND["l"] + breite * (i + 0.5)
         farbe = SERIEN_FARBEN[e["gruppe"] % len(SERIEN_FARBEN)]

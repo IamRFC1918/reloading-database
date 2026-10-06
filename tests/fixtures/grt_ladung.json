@@ -1,0 +1,55 @@
+{
+ "caliber": {
+  "CaliberName": ".45%20Auto%20%28.45%20ACP%29",
+  "oal": "31.20 mm",
+  "caselen": "22.65 mm",
+  "pMaxZul": "1300 bar"
+ },
+ "caliberspec": {
+  "cipname": ".45%20Auto",
+  "altname": ".45%20ACP",
+  "Pmax": "1300.00 bar"
+ },
+ "gun": {
+  "GunName": "",
+  "xe": "609.60 mm"
+ },
+ "projectile": {
+  "BulletName": "LOS%2C%20.45%20swc%2C%200.451%2C%20200.00%20grain",
+  "mname": "LOS",
+  "pname": ".45%20swc",
+  "Dbul": "0.451 in",
+  "mp": "200.00 grain"
+ },
+ "propellant": {
+  "mname": "Hodgdon",
+  "pname": "HP-38",
+  "pt": "21 °C",
+  "mc": "5.50 grain"
+ },
+ "charge": "5.50 grain",
+ "results": {
+  "PeakPressure": "904 bar",
+  "MuzzlePressure": "28 bar",
+  "MuzzleEnergy": "785 J",
+  "MuzzleVelocity": "348.0 m/s",
+  "BarrelTime": "2.2630 ms",
+  "BulletLeadTime": "invalid",
+  "OptimalBarrelTime": "invalid",
+  "OptimalBarrelTimeNode": "invalid",
+  "LoadRatio": "42.5 %",
+  "BurnRatio": "100.0 %",
+  "BurnEfficiency": "55.0 %",
+  "IPSCFactor": "228",
+  "MIPFactor": "451",
+  "Impulse": "4.79 Ns",
+  "ImpulseProjectile": "4.51 Ns",
+  "ImpulsePropellant": "0.09 Ns",
+  "OutflowVelocity": "533.5 m/s"
+ },
+ "messages": {
+  "errors": {},
+  "warnings": {},
+  "notes": {}
+ }
+}

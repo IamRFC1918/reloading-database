@@ -68,6 +68,8 @@ class Laborierung(Base):
     status: Mapped[str] = mapped_column(String(20), default="entwurf", index=True)
     datum: Mapped[date | None] = mapped_column(Date)
     notiz: Mapped[str | None] = mapped_column(Text)
+    # Importierte Rechnung aus Gordons Reloading Tool (JSON, siehe grt.py)
+    grt_rechnung: Mapped[str | None] = mapped_column(Text)
 
     # Gesetzt beim Duplizieren: Ausgangs-Laborierung der Vorserie
     vorgaenger_id: Mapped[int | None] = mapped_column(

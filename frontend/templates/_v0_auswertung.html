@@ -10,6 +10,10 @@
     {% if a.energie_j %}<div><span class="kz-label">E0</span><span class="kz-wert">{{ zahl(a.energie_j, 0) }} J</span><span class="kz-neben">aus Ø v0</span></div>{% endif %}
     {% if a.power_factor %}<div><span class="kz-label">Power Factor</span><span class="kz-wert">{{ zahl(a.power_factor) }}</span><span class="kz-neben">gr × fps / 1000</span></div>{% endif %}
   </div>
+  {% set vgl = grt_abweichung(grt, s.mittel) if grt else none %}
+  {% if vgl %}
+  <p class="grt-vergleich">GRT-Rechnung {{ zahl(grt.v0_ms) }} m/s · gemessen <strong>{{ zahl(vgl[0], 1, vorzeichen=true) }} m/s ({{ zahl(vgl[1], 1, vorzeichen=true) }} %)</strong>{% if grt.lauflaenge_mm %} · GRT rechnet mit {{ zahl(grt.lauflaenge_mm, 0) }} mm Lauf{% endif %}</p>
+  {% endif %}
   <p class="hilfe">{% if a.einzelwerte %}{{ s.n }} Schuss gemessen{% else %}nur Mittelwert eingetragen{% endif %}{% if not a.energie_j %} · E0 und Power Factor brauchen das Geschossgewicht{% endif %}</p>
   {% if a.einzelwerte and s.n >= 2 %}
     {{ schuss_diagramm(werte_ms(t)) }}

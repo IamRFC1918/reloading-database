@@ -143,3 +143,5 @@ input:focus, select:focus, textarea:focus { outline: 3px solid #9cc3e0; outline-
 .tabelle-rahmen { overflow-x: auto; }
 .tabelle .gruppe-zeile th { text-align: left; color: var(--text); padding-top: .6rem; font-weight: 600; }
 .tabelle .punkt { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: .35rem; }
+.grt-vergleich { margin: .2rem 0 .4rem; font-size: .95rem; font-variant-numeric: tabular-nums; }
+.tabelle .grt-zeile td { color: var(--leise); font-style: italic; }

@@ -17,6 +17,7 @@ backend/
   checks.py     Warnungen (Ladung > Max-Ladung, fehlende Quelle) und Vorserien-Diff
   ballistik.py  Auswertung gemessener v0: Statistik, E0, Power Factor (keine Vorhersage!)
   charts.py     Inline-SVG-Diagramme (Schüsse je Testserie, Serienvergleich)
+  grt.py        Import "aktive Ladung" aus Gordons Reloading Tool (JSON), Plausibilitätsprüfung
   units.py      Dezimalkomma parsen/formatieren, Datum
   labels.py     Etikettdaten, QR (qrcode), PDF (reportlab), A4-Bogen-Raster
   backup.py     Export/Import JSON und CSV-ZIP
@@ -65,6 +66,9 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
   Leerzeichen-getrennt mit Punkt ("251.3 249"). Eingabe auch in fps, wird beim
   Speichern umgerechnet. `geschwindigkeit_ms` ist dann der berechnete
   Mittelwert, ohne Einzelwerte ein manuell eingetragener.
+- `laborierung.grt_rechnung` (Text, JSON): importierte GRT-Rechnung, nur die
+  ausgewerteten Felder (siehe `grt.Rechnung`), ohne den lokalen Dateipfad aus dem
+  Export. Ein erneuter Import ersetzt sie, beim Duplizieren wird sie nicht kopiert.
 - `foto` (n:1 zur Testserie, CASCADE): nur der Pfad relativ zu `UPLOAD_DIR`,
   die Datei liegt auf dem PVC.
 - `los` (n:1, RESTRICT): `los_nr` ist eindeutig, Format
@@ -85,6 +89,14 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
   Bewusst KEINE vorhersagende Innenballistik (Gasdruck, v0 aus Ladung), weil
   ein einfaches Modell beim Druck gefährlich ungenau wäre und es eine
   Ladedaten-Vorgabe wäre.
+- **GRT-Import nur als dokumentierte Fremdrechnung**: eine aktive Ladung als
+  JSON (CSV-Export von GRT erzeugt fünf Dateien). Alle GRT-Werte sind Text mit
+  Einheit ("348.0 m/s") und URL-kodierten Namen; `grt.py` rechnet fps, psi, Zoll,
+  g und ft-lbs um. Beim Import und in der Anzeige wird mit der Laborierung
+  verglichen (Ladung, Geschossgewicht, L6, Hülsenlänge, Pulver, Kaliber). Die
+  Lauflänge aus GRT wird prominent gezeigt, weil sie zur Waffe passen muss
+  (GRT-Vorlagen haben z. B. 609,6 mm / 24″). Anzeige immer als „nicht gemessen“.
+  Die App rechnet selbst weiterhin nichts vorher.
 - **Diagramme als serverseitiges Inline-SVG** (`charts.py`): keine JS-Bibliothek,
   CSP-tauglich, Tooltips per `<title>`, die Werte zusätzlich als Tabelle.
   Farben aus der validierten dataviz-Referenzpalette (Slots 1–3 blau/orange/aqua,
@@ -143,8 +155,10 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
 
 ## Verifiziert
 
-- pytest (76 Tests: Modelle, Warnlogik, Login/CSRF/Rate-Limit, Open Redirect,
-  Routen, Etikett/PDF, Backup-Roundtrip, Ballistik/Diagramme) gegen SQLite.
+- pytest (90 Tests: Modelle, Warnlogik, Login/CSRF/Rate-Limit, Open Redirect,
+  Routen, Etikett/PDF, Backup-Roundtrip, Ballistik/Diagramme, GRT-Import) gegen
+  SQLite. GRT-Fixture `tests/fixtures/grt_ladung.json` ist eine reduzierte,
+  anonymisierte Kopie eines echten GRT-2021-Exports.
 - Diagramme per headless Chrome bei 360 px Breite angesehen.
 - Mit Podman gegen MariaDB 11 und 11.4: Migration idempotent, utf8mb4 inkl.
   Emoji, App mit `--read-only --user 10001 --cap-drop ALL`, MariaDB mit

@@ -13,7 +13,8 @@ from models import Laborierung, Los
 Session = scoped_session(sessionmaker(expire_on_commit=False))
 
 # Felder, die beim Duplizieren NICHT übernommen werden
-_NICHT_KOPIEREN = {"id", "name", "status", "datum", "vorgaenger_id", "erstellt_am", "geaendert_am"}
+# (die GRT-Rechnung gehört zu genau diesen Parametern und passt zur Kopie nicht mehr)
+_NICHT_KOPIEREN = {"id", "name", "status", "datum", "vorgaenger_id", "erstellt_am", "geaendert_am", "grt_rechnung"}
 
 
 def init_engine(url):
