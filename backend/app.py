@@ -8,6 +8,7 @@ import secrets
 import uuid
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from flask import (
     Flask,
@@ -110,6 +111,16 @@ def create_app(overrides=None):
     return app
 
 
+def _lokales_ziel(url):
+    """Nur Pfade dieser App als Weiterleitungsziel zulassen (kein Open Redirect).
+    Backslashes zählen mit, weil Browser "/\\host" wie "//host" behandeln."""
+    url = (url or "").replace("\\", "/")
+    teile = urlsplit(url)
+    if url.startswith("/") and not url.startswith("//") and not teile.scheme and not teile.netloc:
+        return url
+    return None
+
+
 def _get_or_404(model, obj_id):
     obj = Session.get(model, obj_id)
     if obj is None:
@@ -170,11 +181,7 @@ def register_routes(app, limiter):  # noqa: C901 – bewusst alle Routen an eine
             if user:
                 login_user(user, remember=False)
                 session.permanent = True
-                ziel = request.args.get("next", "")
-                # Nur relative Pfade zulassen (kein Open Redirect)
-                if not ziel.startswith("/") or ziel.startswith("//"):
-                    ziel = url_for("index")
-                return redirect(ziel)
+                return redirect(_lokales_ziel(request.args.get("next")) or url_for("index"))
             flash("Benutzername oder Passwort falsch.", "fehler")
         return render_template("login.html")
 
@@ -462,8 +469,16 @@ def register_routes(app, limiter):  # noqa: C901 – bewusst alle Routen an eine
     @app.errorhandler(413)
     def zu_gross(_):
         flash(f"Datei zu groß (max. {config.MAX_UPLOAD_MB} MB).", "fehler")
-        return redirect(request.referrer or url_for("index"))
+        # Nur den Pfad des Referers verwenden, nie einen fremden Host
+        ziel = _lokales_ziel(urlsplit(request.referrer or "").path)
+        return redirect(ziel or url_for("index"))
 
 
 if __name__ == "__main__":
-    create_app().run(host="0.0.0.0", port=int(config.get("PORT", "8000")), debug=True)
+    # Nur lokale Entwicklung. Debugger nur mit FLASK_DEBUG=1 und standardmäßig nur
+    # auf localhost (für Tests am Handy im WLAN: HOST=0.0.0.0, dann ohne Debugger).
+    create_app().run(
+        host=config.get("HOST", "127.0.0.1"),
+        port=int(config.get("PORT", "8000")),
+        debug=config.get_bool("FLASK_DEBUG", False),
+    )

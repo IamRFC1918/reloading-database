@@ -68,3 +68,11 @@ def test_unterschiede_zum_vorgaenger():
     neu = _lab(l6_mm=Decimal("31.2"), pulver="HP-38", name="B", status="in_test")
     assert unterschiede(alt, neu) == [("L6 (Gesamtlänge)", "30,5 mm", "31,2 mm")]
     assert unterschiede_text(alt, neu) == "L6 (Gesamtlänge) 30,5 mm → 31,2 mm"
+
+
+def test_etikettgroesse_parsen():
+    from labels import parse_size
+    assert parse_size("70x50") == (70, 50)
+    assert parse_size(" 100 × 70 ") == (100, 70)
+    assert parse_size("10x10") == (90, 60)  # zu klein
+    assert parse_size(" " * 10000 + "x") == (90, 60)  # lange Eingabe, kein Backtracking

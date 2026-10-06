@@ -82,3 +82,15 @@ def test_csrf_wird_erzwungen(app):
     token = re.search(r'name="csrf_token" value="([^"]+)"', client.get("/login").get_data(as_text=True)).group(1)
     resp = client.post("/login", data={"name": "schuetze", "passwort": "geheim1234", "csrf_token": token})
     assert resp.status_code == 302
+
+
+@pytest.mark.parametrize("ziel", ["//boese.example", "/\\boese.example", "\\\\boese.example",
+                                  "https://boese.example/", "javascript:alert(1)", "boese"])
+def test_login_next_nur_lokale_pfade(client, ziel):
+    resp = client.post("/login", query_string={"next": ziel}, data={"name": "schuetze", "passwort": "geheim1234"})
+    assert resp.headers["Location"] == "/"
+
+
+def test_login_next_lokaler_pfad(client):
+    resp = client.post("/login?next=/lose", data={"name": "schuetze", "passwort": "geheim1234"})
+    assert resp.headers["Location"] == "/lose"

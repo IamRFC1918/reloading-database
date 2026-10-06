@@ -18,7 +18,10 @@ BOGEN_RAND_MM = 8
 def parse_size(text, default="90x60"):
     """'90x60' -> (90, 60); ungültig oder außerhalb 30..200 mm -> default."""
     for candidate in (text, default):
-        m = re.fullmatch(r"\s*(\d{2,3})\s*[xX×]\s*(\d{2,3})\s*", candidate or "")
+        # Länge begrenzen und Leerzeichen vorab entfernen -> einfache, lineare Regex
+        if not candidate or len(candidate) > 20:
+            continue
+        m = re.fullmatch(r"(\d{2,3})[xX×](\d{2,3})", "".join(candidate.split()))
         if m:
             w, h = int(m.group(1)), int(m.group(2))
             if MIN_MM <= w <= MAX_MM and MIN_MM <= h <= MAX_MM:

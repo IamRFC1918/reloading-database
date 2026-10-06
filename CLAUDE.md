@@ -38,7 +38,7 @@ scripts/release.sh           SemVer-Release: Chart.yaml setzen, committen, tagge
 ```bash
 ./db/run_mariadb.sh                          # MariaDB (Podman), liest .env
 venv/bin/python backend/manage.py migrate    # Schema, Admin aus ADMIN_*, Seed
-cd backend && ../venv/bin/python app.py      # http://localhost:8000
+cd backend && FLASK_DEBUG=1 ../venv/bin/python app.py   # http://localhost:8000
 venv/bin/pytest && venv/bin/ruff check .
 podman compose up --build                    # App + MariaDB komplett
 scripts/release.sh 0.2.0 && git push origin main v0.2.0   # Release
