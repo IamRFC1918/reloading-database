@@ -2,6 +2,6 @@ apiVersion: v2
 name: ladedaten
 description: Verwaltung eigener Wiederlade-Daten (Laborierungen, Testserien, Lose, Etiketten)
 type: application
-version: 0.2.2
-appVersion: "0.2.2"
+version: 0.2.3
+appVersion: "0.2.3"
 keywords: [reloading, flask, mariadb]
