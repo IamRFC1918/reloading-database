@@ -18,8 +18,9 @@ fi
 chart=charts/ladedaten/Chart.yaml
 aktuell=$(awk '/^version:/ {print $2}' "$chart" | tr -d '"')
 
-if [[ -n "$(git status --porcelain)" ]]; then
-  echo "Arbeitsverzeichnis ist nicht sauber – erst committen." >&2
+# Nicht versionierte Dateien stören nicht – sie landen nicht im Tag
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+  echo "Arbeitsverzeichnis hat uncommittete Änderungen – erst committen." >&2
   exit 1
 fi
 if [[ "$(git branch --show-current)" != "main" ]]; then
