@@ -44,8 +44,8 @@ database:
 #   operator:
 #     createInstance: false
 #     mariaDbRef:
-#       name: phpipam-mariadb
-#       namespace: phpipam
+#       name: shared-mariadb
+#       namespace: databases
 
 networkPolicy:
   enabled: true

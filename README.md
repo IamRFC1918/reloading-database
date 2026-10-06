@@ -4,9 +4,15 @@ Webanwendung zur Verwaltung eigener Wiederlade-Daten (Laborierungen,
 Testserien/Erfahrungen, Lose mit Etikettendruck). Flask + MariaDB, Betrieb auf
 Kubernetes per Helm, für die Bedienung am Handy gebaut.
 
-> Das Tool gibt **keine** Ladedaten vor. Es dokumentiert nur eigene Angaben aus
-> Ladetabellen und warnt, wenn die eingetragene Ladung über der eingetragenen
-> Max-Ladung der Quelle liegt.
+> [!WARNING]
+> **Haftungsausschluss:** Wiederladen von Munition ist gefährlich und in
+> Deutschland erlaubnispflichtig (§ 27 SprengG). Dieses Tool gibt **keine**
+> Ladedaten vor und prüft keine Ladungen auf Sicherheit. Es dokumentiert nur
+> eigene Angaben aus Ladetabellen und warnt lediglich, wenn eine eingetragene
+> Ladung über der selbst eingetragenen Max-Ladung liegt. Maßgeblich sind
+> ausschließlich die Angaben der Pulver- und Geschosshersteller. Die Nutzung
+> erfolgt auf eigene Verantwortung, ohne jede Gewähr (siehe [LICENSE](LICENSE)).
+> Werte in Beispieldaten sind **keine Ladeempfehlung**.
 
 ## Lokal entwickeln
 
@@ -138,3 +144,8 @@ Dependabot hält Actions, Python-Pakete und Basis-Image aktuell.
   Größe einstellbar) oder **PDF** tippen. Vom Handy aus ist das PDF meist der
   einfachere Weg.
 - Backup: unter **Backup** als JSON oder CSV-ZIP exportieren und importieren.
+
+## Lizenz
+
+[MIT](LICENSE). Sicherheitslücken bitte wie in [SECURITY.md](SECURITY.md)
+beschrieben melden.

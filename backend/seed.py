@@ -1,5 +1,6 @@
-"""Beispieldaten (eigene Angaben des Nutzers, keine Ladeempfehlung).
-Werden nur in eine leere Datenbank geschrieben, abschaltbar per SEED_DEMO_DATA=false."""
+"""Beispieldatensatz, damit die Oberfläche nach der Installation nicht leer ist.
+Die Werte sind KEINE Ladeempfehlung. Nur in eine leere Datenbank, und nur mit
+SEED_DEMO_DATA=true (Standard: aus)."""
 from datetime import date
 from decimal import Decimal
 
@@ -12,7 +13,7 @@ def seed_demo_daten():
     if storage.anzahl_laborierungen():
         return False
     lab = Laborierung(
-        name=".45 ACP SWC 200 gr / HP-38 – Serie 2 (L6 31,2)",
+        name="Beispiel – .45 ACP SWC 200 gr / HP-38 (keine Ladeempfehlung)",
         kaliber=".45 ACP",
         geschoss_hersteller="L.O.S. Cerkno",
         geschoss_gewicht_gr=Decimal("200"),
@@ -26,7 +27,8 @@ def seed_demo_daten():
         matrizen="Hornady Custom Grade",
         status="in_test",
         datum=date.today(),
-        notiz="Vorserie mit L6 30,5 mm.",
+        notiz="Beispieldatensatz zum Ausprobieren der App – keine Ladeempfehlung. "
+        "Vor eigener Verwendung immer mit aktuellen Herstellerdaten abgleichen.",
     )
     lab.testserien.append(Testserie(
         datum=date.today(),

@@ -68,6 +68,9 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
 
 ## Bewusste Design-Entscheidungen
 
+- **Öffentliches Repo (MIT):** keine Heim-Infrastruktur-Details (Hostnamen,
+  Namespaces, IPs) in Repo-Dateien. Beispieldaten sind als „keine
+  Ladeempfehlung“ markiert und standardmäßig aus (`SEED_DEMO_DATA`/`seedDemoData`).
 - **Keine Ladedaten-Vorgaben.** Die Warnung vergleicht nur Ladung mit der
   selbst eingetragenen Max-Ladung der Quelle (`checks.py`). Das Tool soll keine
   „empfohlenen“ Werte, Tabellen oder Hochrechnungen bekommen.
@@ -132,17 +135,15 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
   inkl. Rotation.
 - `helm lint --strict` und `helm template` (internal/external, Backup,
   NetworkPolicy, Mirror-Registry).
-- Operator-Modus per `kubectl apply --dry-run=server` gegen den Heim-Cluster
-  (mariadb-operator 26.3.0, inkl. Webhooks): eigene Instanz und Mitbenutzung
-  von `phpipam/phpipam-mariadb`. Noch keine echte Installation.
+- Operator-Modus per `kubectl apply --dry-run=server` gegen einen Cluster mit
+  mariadb-operator 26.3.0 (inkl. Webhooks): eigene Instanz und Mitbenutzung
+  einer vorhandenen Instanz in einem anderen Namespace. Noch keine echte Installation.
 
 ## Offene Punkte
 
 - Das Helm-Chart lief noch nicht in einem echten Cluster (nur lint/template,
   Server-Dry-Run und die Container-Settings mit Podman). Ungetestet ist vor allem
   der `Backup`-CR bei einer Instanz in einem anderen Namespace.
-- Im Heim-Cluster gibt es einen zweiten, NotReady-Node `localhost.localdomain`
-  mit derselben IP wie `k3s02` (vermutlich Altlast, nicht angefasst).
 - Fotos werden in Originalgröße gespeichert (kein Verkleinern, EXIF bleibt).
   Das Foto-PVC ist nicht im Backup-CronJob enthalten.
 - Keine Offline-Fähigkeit/Service-Worker (bewusst nicht in Version 1).

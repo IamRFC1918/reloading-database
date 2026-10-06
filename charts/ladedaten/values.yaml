@@ -26,7 +26,8 @@ app:
   # X-Forwarded-* vom Ingress auswerten (korrekte URLs im QR-Code)
   trustProxy: true
   labelSize: "90x60"
-  seedDemoData: true
+  # Beispieldatensatz in leere DB (zum Ausprobieren; keine Ladeempfehlung)
+  seedDemoData: false
   maxUploadMB: 25
   loginRateLimit: "10 per minute"
   extraEnv: []
