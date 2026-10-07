@@ -183,3 +183,9 @@ allem `server_default=sa.func.now()` statt SQLite-spezifischem Text. CI führt
 - SARIF-Upload in den Security-Tab braucht bei privaten Repos GitHub Advanced
   Security (Schritt ist `continue-on-error`).
 - Kein UI zum Ändern des eigenen Passworts (nur `manage.py create-user`).
+- GRT-Kurven (p(t), v(t)) lassen sich nicht anzeigen: Der JSON-Export „aktive
+  Ladung“ (GRT 2021.2030) enthält auch mit allen Export-Optionen leere
+  `datapoints`. Aus gemessenen v0 lassen sich keine Druckverläufe zurückrechnen
+  (eine Zahl je Schuss, unendlich viele passende Kurven) – nicht bauen.
+  Mögliche spätere Idee: Einzelschüsse als LabRadar-CSV exportieren, damit GRT
+  sein Pulvermodell an die Messung anpassen kann.
