@@ -1,7 +1,7 @@
 # Basis: Wolfi (Chainguard) – glibc, minimal, täglich neu gebaute Pakete,
 # dadurch kaum offene CVEs. Python wird als Paket in fester Minor-Version
 # installiert. Der Digest wird von Dependabot aktualisiert.
-ARG BASE=cgr.dev/chainguard/wolfi-base:latest@sha256:98ce6e9500fd6713953cdc1727b21dadbb1a43dbb5b82bba061e9364cb435050
+ARG BASE=cgr.dev/chainguard/wolfi-base:latest@sha256:be019c1c74fe69204a42c4e10bc4d886a49bf5403ffa74374ef7baa408fc9a26
 
 # ---------- Build: Abhängigkeiten in ein venv installieren ----------
 FROM ${BASE} AS build
