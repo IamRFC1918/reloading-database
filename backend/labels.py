@@ -59,6 +59,7 @@ def etikett_daten(los):
             ("L6", _mit(lab.l6_mm, "mm") or "–"),
             ("Hülsenmund", _mit(lab.huelsenmund_mm, "mm") or "–"),
             ("Hülsenlänge", _mit(lab.huelsenlaenge_mm, "mm") or "–"),
+            ("Hülse", f"{los.huelsen_verwendung}. Verwendung" if los.huelsen_verwendung else "–"),
             ("Matrizen", lab.matrizen or "–"),
             ("Zündhütchen", lab.zuendhuetchen or "–"),
         ],

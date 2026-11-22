@@ -156,6 +156,8 @@ class Los(Base):
     )
     los_nr: Mapped[str] = mapped_column(String(50), unique=True)
     anzahl: Mapped[int] = mapped_column(Integer)
+    # Wievielte Verwendung der Hülsen (1 = neu / erste Ladung)
+    huelsen_verwendung: Mapped[int | None] = mapped_column(Integer)
     datum: Mapped[date] = mapped_column(Date)
     notiz: Mapped[str | None] = mapped_column(Text)
     erstellt_am: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

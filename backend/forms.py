@@ -121,6 +121,7 @@ TESTSERIE_FELDER = [
 
 LOS_FELDER = [
     Feld("anzahl", "Anzahl", "int", pflicht=True),
+    Feld("huelsen_verwendung", "Hülsen: wievtes Mal geladen", "int"),
     Feld("datum", "Datum", "datum", pflicht=True),
     Feld("notiz", "Notiz", "textarea"),
 ]

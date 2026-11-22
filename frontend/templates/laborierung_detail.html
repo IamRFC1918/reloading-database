@@ -167,6 +167,7 @@
   {% for los in lab.lose %}
   <article class="los">
     <div class="zeile1"><strong>{{ los.los_nr }}</strong><span>{{ los.anzahl }} Stück · {{ los.datum|datum }}</span></div>
+    {% if los.huelsen_verwendung %}<p class="hilfe">Hülsen: {{ los.huelsen_verwendung }}. Verwendung</p>{% endif %}
     {% if los.notiz %}<p class="umbruch">{{ los.notiz }}</p>{% endif %}
     <div class="aktionen">
       <a class="btn btn-primaer" href="{{ url_for('los_etikett', los_id=los.id) }}">Aufkleber drucken</a>
@@ -181,6 +182,7 @@
     <h3>Neues Los</h3>
     <div class="raster">
       <div class="feld"><label for="los-anzahl">Anzahl *</label><input id="los-anzahl" name="anzahl" type="number" inputmode="numeric" min="1" step="1" required></div>
+      <div class="feld"><label for="los-huelsen">Hülsen: wievtes Mal geladen</label><input id="los-huelsen" name="huelsen_verwendung" type="number" inputmode="numeric" min="1" step="1"></div>
       <div class="feld"><label for="los-datum">Datum *</label><input id="los-datum" name="datum" type="date" value="{{ heute.isoformat() }}" required></div>
       <div class="feld"><label for="los-notiz">Notiz</label><input id="los-notiz" name="notiz" type="text"></div>
     </div>
